@@ -12,6 +12,7 @@ import { Ending } from './stages/ending.js';
 const params = new URLSearchParams(location.search);
 const engine = createEngine(document.body);
 const ctx = { ...engine, params, state: { orbs: [] } };
+Object.defineProperty(ctx, 'time', { get: () => engine.time }); // spread copied the getter's value
 ctx.ui = createUI(ctx);
 ctx.fx = new FX(ctx);
 ctx.audio = new AudioSys(ctx);

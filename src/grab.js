@@ -83,6 +83,7 @@ export class GrabSystem {
 
   grab(hand, item, viaRay) {
     item.heldBy = hand;
+    item.grabTime = this.ctx.time;
     hand.held = item;
     item.resting = false;
     item.vel.set(0, 0, 0);
@@ -114,7 +115,7 @@ export class GrabSystem {
     if (hand.isDesktop) item.vel.copy(hand.rayDir).multiplyScalar(4.2).add(_w.set(0, 1.4, 0));
     else item.vel.copy(hand.velocity).multiplyScalar(1.3);
     item.resting = false;
-    item.onRelease?.(hand, item.vel);
+    item.onRelease?.(hand, item.vel, this.ctx.time - (item.grabTime ?? 0));
   }
 
   /** Item held by some other hand, close enough to be "two-handed" by this hand. */

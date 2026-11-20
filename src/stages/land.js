@@ -8,7 +8,7 @@ export const LAND_MODELS = ['flower_gazania', 'celandine_01', 'dandelion_01', 'g
 const TIME_LIMIT = 70;
 const TABLE = { x: 0, z: -0.55, y: 0.7, w: 0.95, d: 0.5 };
 const SLOTS = [-0.3, 0, 0.3];
-const BIN_R = 1.6;
+const BIN_R = 2.15;
 const BIN_ANGLES = [-54, -27, 0, 27, 54];
 const MAX_ON_TABLE = 3;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -221,7 +221,7 @@ float vn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix
 
     // raised flower planters behind the bins and around the plaza
     const planterDegs = [-40, 0, 40, -88, 88];
-    this.planters = planterDegs.map((d) => ({ ...polar(d, d === 0 || Math.abs(d) === 40 ? 2.75 : 2.95), ry: -THREE.MathUtils.degToRad(d), s: 1 }));
+    this.planters = planterDegs.map((d) => ({ ...polar(d, d === 0 || Math.abs(d) === 40 ? 3.0 : 2.95), ry: -THREE.MathUtils.degToRad(d), s: 1 }));
     instanced([
       { geo: new THREE.BoxGeometry(1.1, 0.34, 0.42).translate(0, 0.17, 0), mat: M.wood },
       { geo: new THREE.BoxGeometry(1.0, 0.02, 0.34).translate(0, 0.33, 0), mat: M.soil },
@@ -402,7 +402,7 @@ float vn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix
       if (hint && !this.said.has(hint) && (spec.key === 'gold' || spec.blocked())) { this.said.add(hint); ctx.audio.say(hint); }
       setTimeout(() => this.spawnNext(), 400);
     };
-    item.onRelease = (hand, vel) => this.aimAssist(item, vel);
+    item.onRelease = (hand, vel, heldFor) => this.onThrow(item, hand, vel, heldFor);
     item.onStep = () => this.checkBins(item);
 
     if (spec.need === 'empty') this.setupPour(item);
@@ -477,13 +477,33 @@ float vn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix
     item.labelGrab = labelGrab;
   }
 
+  /**
+   * Only a real throw goes anywhere: a tap/click (no swing) just puts the item back on the table.
+   * Aim assist nudges a throw toward the bin the player aimed at — it never picks the correct bin for them.
+   */
+  onThrow(item, hand, vel, heldFor) {
+    const isThrow = hand.isDesktop ? hand.dragDist > 0.12 && heldFor > 0.2 : heldFor > 0.15 && Math.hypot(vel.x, vel.z) > 1.0;
+    if (!isThrow) {
+      const p = item.obj.position;
+      if (this.floorAt(p.x, p.z) < TABLE.y - 0.01 || hand.isDesktop) {
+        // not above the table: gently put it back in its slot
+        vel.set(0, 0, 0);
+        const slot = this.freeSlot();
+        item.slot = slot >= 0 ? slot : item.slot;
+        p.set(SLOTS[item.slot], TABLE.y + 0.15, TABLE.z);
+      }
+      return;
+    }
+    this.aimAssist(item, vel);
+  }
+
   aimAssist(item, vel) {
     const p = item.obj.position;
     const speed = Math.hypot(vel.x, vel.z);
     // Dropped right above a bin? let it fall in.
     if (speed < 0.8) return;
     const dir = new THREE.Vector2(vel.x, vel.z).normalize();
-    let best = null, bestAng = THREE.MathUtils.degToRad(32);
+    let best = null, bestAng = THREE.MathUtils.degToRad(20);
     for (const b of this.bins) {
       const to = new THREE.Vector2(b.position.x - p.x, b.position.z - p.z);
       const ang = Math.acos(THREE.MathUtils.clamp(to.normalize().dot(dir), -1, 1));
@@ -492,7 +512,7 @@ float vn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix
     if (!best) return;
     const target = new THREE.Vector3(best.position.x, best.userData.H + 0.05, best.position.z);
     const d = Math.hypot(target.x - p.x, target.z - p.z);
-    const T = THREE.MathUtils.clamp(d / 3.2, 0.35, 0.75);
+    const T = THREE.MathUtils.clamp(d / 3.4, 0.4, 0.85);
     vel.set((target.x - p.x) / T, (target.y - p.y) / T + 0.5 * 9.8 * T, (target.z - p.z) / T);
     item.targetBin = best;
   }

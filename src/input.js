@@ -110,6 +110,8 @@ export function createInput(ctx) {
           h.anchor.quaternion.copy(_q);
           h.anchor.updateMatrixWorld();
           h.pressed = mouseDown;
+          if (h.pressed && !prev) h.pressNdc = ndc.clone();
+          if (h.pressNdc) h.dragDist = ndc.distanceTo(h.pressNdc);
           h.doubleClick = dbl; dbl = false;
         } else {
           h.pressed = h._btn.select || h._btn.squeeze;

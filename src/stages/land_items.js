@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { instance, uniqueMaterials } from '../assets.js';
-import { FONT } from '../ui.js';
+import { FONT, textPanel } from '../ui.js';
 
 export const BINS = [
   { cat: 'plastic', name: '플라스틱', color: '#f39c12', icon: '🧴' },
@@ -202,6 +202,10 @@ export function makeBin(def) {
   glow.rotation.x = Math.PI / 2; glow.position.y = H + 0.01;
   g.add(glow);
 
+  const sign = textPanel({ width: 0.56, height: 0.2, text: `${def.icon} ${def.name}`, size: 88, bg: def.color, border: 'rgba(255,255,255,0.9)', weight: 900, res: 512 });
+  sign.position.set(0, H + 0.3, -RT - 0.02); // floats over the back rim, readable over the table
+  sign.material.depthWrite = true;
+  g.add(sign);
   g.userData = { def, H, RT, panelMat, faces, glow, body };
   g.userData.setFace = (m) => { panelMat.map = faces[m]; panelMat.emissiveMap = faces[m]; panelMat.needsUpdate = true; };
   return g;
