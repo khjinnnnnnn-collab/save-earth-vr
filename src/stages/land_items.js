@@ -206,3 +206,10 @@ export function makeBin(def) {
   g.userData.setFace = (m) => { panelMat.map = faces[m]; panelMat.emissiveMap = faces[m]; panelMat.needsUpdate = true; };
   return g;
 }
+
+// ---- cheap decorative litter (not interactive) ----
+const LITTER_COLORS = ['#d62828', '#1d7bd8', '#2a9d4b', '#f4a020', '#7b2cbf'];
+export function litterCan() { const g = drinkCan({ base: LITTER_COLORS[Math.floor(Math.random() * 5)], text: 'COLA' }); g.scale.setScalar(0.9); return g; }
+export function litterBottle() { return petBottle({ cap: [0x2a7de1, 0xe12a2a, 0x2ae17d][Math.floor(Math.random() * 3)] }); }
+export function litterBag() { return snackBag(); }
+export function litterPaper() { const g = newspaper(); g.rotation.z = Math.PI / 2; return g; }

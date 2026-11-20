@@ -67,7 +67,7 @@ export function loadTexSet(id, repeat = 1) {
       if (srgb) t.colorSpace = THREE.SRGBColorSpace;
       return t;
     };
-    return { diff: mk('diff', true), nor: mk('nor_gl', false), arm: mk('arm', false) };
+    return { diff: mk('diff', true), nor: mk('nor_gl', false) };
   });
 }
 

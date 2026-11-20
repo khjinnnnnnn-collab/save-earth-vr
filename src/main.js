@@ -6,7 +6,7 @@ import { createUI } from './ui.js';
 import { FX } from './fx.js';
 import { AudioSys } from './audio.js';
 import { Intro, Placeholder } from './stages/space.js';
-import { Land } from './stages/land.js';
+import { Land, LAND_MODELS } from './stages/land.js';
 import { Ending } from './stages/ending.js';
 
 const params = new URLSearchParams(location.search);
@@ -36,8 +36,7 @@ manager.onProgress = (url, loaded, total) => {
   $('bar').style.width = p + '%';
   $('pct').textContent = `불러오는 중… ${p}%`;
 };
-const LAND_ASSETS = ['island_tree_02', 'shrub_02', 'shrub_03', 'flower_gazania', 'celandine_01', 'dandelion_01', 'grass_medium_01', 'painted_wooden_bench', 'street_lamp_01', 'boulder_01', 'dead_tree_trunk', 'tree_stump_01', 'trashbag', 'can_rusted', 'plastic_bottle_gallon', 'multi_cleaner_bottle', 'russian_food_cans_01', 'wine_bottles_01', 'cardboard_box_01'];
-const preload = Promise.all([loadHDR('kloofendal_48d_partly_cloudy_puresky'), ...LAND_ASSETS.map(loadModel)]);
+const preload = Promise.all([loadHDR('kloofendal_48d_partly_cloudy_puresky'), ...LAND_MODELS.map(loadModel)]);
 
 async function play() {
   const start = params.get('stage');
