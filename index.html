@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>지구를 구하라 VR</title>
+<link rel="stylesheet" href="./src/style.css">
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/build/three.module.js", "three/addons/": "./vendor/three/addons/" } }
+</script>
+</head>
+<body>
+<div id="overlay">
+  <div class="card">
+    <div class="globe">🌍</div>
+    <h1>지구를 구하라!</h1>
+    <p class="sub">땅 · 바다 · 하늘을 깨끗하게 만들어 아픈 지구를 구해 주세요</p>
+    <div id="loading"><div class="bar"><i id="bar"></i></div><span id="pct">불러오는 중… 0%</span></div>
+    <div id="buttons" hidden>
+      <button id="btn-vr" class="primary">🥽 VR로 시작하기</button>
+      <button id="btn-desktop">🖥️ 화면으로 체험하기</button>
+    </div>
+    <p id="vr-note" class="note"></p>
+  </div>
+</div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
