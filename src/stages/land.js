@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { loadHDR, loadTexSet, instance, loadModel } from '../assets.js';
 import { BINS, SEQUENCE, makeItem, makeBin, crumpledLabel, litterCan, litterBottle, litterBag, litterPaper } from './land_items.js';
 import { materials, blobGeometry, treeGeometries, instanced, bunting, butterflies } from '../props.js';
-import { createOrb, ORB_COLORS } from '../earth.js';
+import { collectOrb } from './common.js';
 
 export const LAND_MODELS = ['flower_gazania', 'celandine_01', 'dandelion_01', 'grass_medium_01', 'painted_wooden_bench', 'trashbag', 'plastic_bottle_gallon', 'multi_cleaner_bottle', 'russian_food_cans_01', 'wine_bottles_01', 'cardboard_box_01'];
 const TIME_LIMIT = 70;
@@ -624,28 +624,7 @@ float vn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix
     await this.collectOrb('land');
   }
 
-  async collectOrb(kind) {
-    const { ctx } = this;
-    const orb = createOrb(kind, 0.08);
-    const cam = new THREE.Vector3();
-    ctx.camera.getWorldPosition(cam);
-    orb.position.set(cam.x * 0.5, Math.max(1.0, cam.y - 0.35), -0.35);
-    this.root.add(orb);
-    let got = false;
-    const it = ctx.grab.add(orb, { radius: 0.15, physics: false });
-    it.onGrab = () => (got = true);
-    const bob = ctx.onUpdate((dt, t) => { if (!it.heldBy) orb.position.y += Math.sin(t * 3) * 0.0015; orb.rotation.y += dt; });
-    this.offs.push(bob);
-    ctx.audio.say('orb_grab', { priority: 2 });
-    await ctx.until(() => got, 12);
-    ctx.camera.getWorldPosition(cam);
-    const p = orb.getWorldPosition(new THREE.Vector3());
-    ctx.fx.burst(p, ORB_COLORS[kind], { n: 60, speed: 2 });
-    ctx.audio.sfx('sparkle');
-    ctx.state.orbs.push(kind);
-    ctx.grab.remove(it);
-    await ctx.wait(1.0);
-  }
+  collectOrb(kind) { return collectOrb(this.ctx, this.root, kind, this.offs); }
 
   dispose() {
     this.offs.forEach((f) => f());

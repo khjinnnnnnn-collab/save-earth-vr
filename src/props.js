@@ -88,7 +88,7 @@ export function treeGeometries(kind) {
 /**
  * Instanced set of multi-part props. placements: {x,y?,z,ry,s,d?}. tint(i, k) recolours polluted→healthy.
  */
-export function instanced(parts, placements, root, { shadow = false } = {}) {
+export function instanced(parts, placements, root, { shadow = false, sick: sickColor = null } = {}) {
   const ims = parts.map(({ geo, mat, tintable }) => {
     const im = new THREE.InstancedMesh(geo, mat, placements.length);
     im.castShadow = shadow; im.receiveShadow = true;
@@ -104,7 +104,7 @@ export function instanced(parts, placements, root, { shadow = false } = {}) {
     m.compose(new THREE.Vector3(p.x, p.y || 0, p.z), q, s);
     ims.forEach((im) => im.setMatrixAt(i, m));
   });
-  const sick = new THREE.Color(0.62, 0.52, 0.36), healthy = new THREE.Color(1, 1, 1), c = new THREE.Color();
+  const sick = new THREE.Color(sickColor ?? new THREE.Color(0.62, 0.52, 0.36)), healthy = new THREE.Color(1, 1, 1), c = new THREE.Color(), tgt = new THREE.Color();
   const api = {
     ims,
     /** recolour by clean radius (instances inside the radius turn healthy) */
@@ -113,7 +113,7 @@ export function instanced(parts, placements, root, { shadow = false } = {}) {
         if (!im.userData.tintable) continue;
         placements.forEach((p, i) => {
           const k = THREE.MathUtils.clamp((radius - (p.d ?? Math.hypot(p.x, p.z))) / 2, 0, 1);
-          c.copy(sick).lerp(healthy, k);
+          c.copy(sick).lerp(p.c !== undefined ? tgt.set(p.c) : healthy, k);
           im.setColorAt(i, c);
         });
         im.instanceColor.needsUpdate = true;

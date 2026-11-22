@@ -8,6 +8,7 @@ import { AudioSys } from './audio.js';
 import { Intro, Placeholder } from './stages/space.js';
 import { Land, LAND_MODELS } from './stages/land.js';
 import { Ending } from './stages/ending.js';
+import { Sea } from './stages/sea.js';
 
 const params = new URLSearchParams(location.search);
 const engine = createEngine(document.body);
@@ -24,7 +25,7 @@ window.__game = ctx; // for automated tests
 const STAGES = {
   intro: () => new Intro(ctx),
   land: () => new Land(ctx),
-  sea: () => new Placeholder(ctx, 'sea'),
+  sea: () => new Sea(ctx),
   sky: () => new Placeholder(ctx, 'sky'),
   ending: () => new Ending(ctx),
 };
