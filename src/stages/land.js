@@ -391,6 +391,14 @@ float vn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix
     spec.blocked = () => (spec.need === 'empty' && !spec.state.emptied) || (spec.need === 'flat' && !spec.state.flat) || (spec.need === 'peel' && !spec.state.peeled);
     obj.traverse((o) => { if (o.isMesh) o.castShadow = true; });
     const item = ctx.grab.add(obj, { radius: 0.12, spec, slot });
+    // name of the thing in hand (no category — kids decide the bin themselves)
+    item.label = () => {
+      const st = spec.state || {};
+      if (spec.key === 'juice') return st.emptied ? '🧃 빈 주스 페트병' : '🧃 주스 페트병 (음료가 남았어요)';
+      if (spec.key === 'pet') return st.peeled ? '💧 라벨 뗀 페트병' : '💧 생수 페트병 (라벨 붙음)';
+      if (spec.key === 'box') return st.flat ? '📦 납작하게 접은 상자' : '📦 택배 상자';
+      return spec.name;
+    };
     item.bottom = 0;
     this.live.add(item);
     ctx.fx.burst(obj.position, 0xffffff, { n: 14, speed: 0.8, size: 0.03 });
@@ -462,7 +470,7 @@ float vn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix
       ctx.audio.sfx('squash');
       ctx.fx.burst(wp, 0x5ab8ff, { n: 16, speed: 0.8 });
       // the label becomes its own piece of (vinyl) trash
-      const lspec = { key: 'label', cat: 'vinyl', state: {}, obj: crumpledLabel(tex) };
+      const lspec = { key: 'label', name: '🏷️ 페트병 라벨', cat: 'vinyl', state: {}, obj: crumpledLabel(tex) };
       const slot = this.freeSlot();
       const li = this.spawn(lspec, slot >= 0 ? slot : item.slot);
       li.obj.position.copy(wp); li.obj.position.y += 0.05;
@@ -552,7 +560,7 @@ float vn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix
       u.anim = { kind: 'shake', t: 0 }; u.setFace('wrong');
       ctx.audio.sfx('wrong');
       const hint = spec.blocked() ? ({ empty: 'land_full', flat: 'land_box', peel: 'land_label' }[spec.need]) : `land_hint_${spec.cat}`;
-      ctx.audio.say(hint);
+      ctx.audio.say(hint, { hint: true });
       const slot = this.freeSlot();
       item.slot = slot >= 0 ? slot : item.slot;
       const target = new THREE.Vector3(SLOTS[item.slot], TABLE.y + 0.1, TABLE.z);

@@ -10,7 +10,7 @@ import {
   makeLighthouse, makeMask, maskOverlay, seaTrash,
 } from './sea_props.js';
 
-const UNDERWATER_LIMIT = 70;
+const UNDERWATER_LIMIT = 90;
 const FLOOR = -1.2;
 const STATIONS = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -7), new THREE.Vector3(2.0, 0, -14), new THREE.Vector3(-0.6, 0, -21)];
 const CORAL = [0xff6fa8, 0xff9a3c, 0xb37bff, 0xffd23f, 0x3fe0c5, 0xff4d5e, 0x6fd0ff];
@@ -338,6 +338,7 @@ export class Sea {
 
   buildTrash() {
     const kinds = [() => seaTrash('slipper'), () => litterBottle(), () => seaTrash('foam'), () => litterCan(), () => seaTrash('line'), () => litterBag(), () => litterBottle(), () => seaTrash('slipper'), () => litterCan()];
+    this.trashNames = ['🩴 슬리퍼', '💧 페트병', '⬜ 스티로폼', '🥤 음료 캔', '🧵 낚싯줄', '🍿 과자 봉지', '💧 페트병', '🩴 슬리퍼', '🥤 음료 캔'];
     this.floaters = kinds.map((mk, i) => {
       const st = STATIONS[1 + Math.floor(i / 3)];
       const side = [-1, 1, -0.2][i % 3];
@@ -376,7 +377,7 @@ export class Sea {
       if (mp.distanceTo(head) < 0.3 || (maskItem.heldBy?.isDesktop && ctx.time - maskItem.grabTime > 0.7)) worn = true;
     };
     maskItem.onRelease = () => { this.mask.position.set(0, 0.86, -0.6); this.mask.rotation.set(0, 0, 0); };
-    await ctx.until(() => worn, 20);
+    await ctx.until(() => worn, 25);
     ctx.audio.sfx('whoosh');
     maskItem.heldBy?.pulse(0.8, 150);
     ctx.grab.remove(maskItem);
@@ -395,7 +396,7 @@ export class Sea {
     this.healers.forEach((h) => h.heal(-3));
     this.total = 3 * 2 + this.floaters.length + 3;
     this.score = 0; this.bagged = 0;
-    this.trashItems = this.floaters.map((o) => this.makeTrash(o));
+    this.trashItems = this.floaters.map((o, i) => { const it = this.makeTrash(o); it.label = this.trashNames[i]; return it; });
     this.elapsed = 0; this.underwater = true;
     await ctx.fade(0, 0.8);
     ctx.audio.sfx('whoosh');
@@ -452,6 +453,7 @@ export class Sea {
     const { ctx } = this;
     const target = STATIONS[i];
     if (needGesture) {
+      await ctx.audio.idle(); // let the "saved!" message finish first
       ctx.audio.say('sea_swim');
       let stroke = 0;
       const desktop = !ctx.renderer.xr.isPresenting;
@@ -465,7 +467,7 @@ export class Sea {
     const from = ctx.rig.position.clone();
     ctx.audio.sfx('whoosh');
     await ctx.tween(2.6, (k) => ctx.rig.position.lerpVectors(from, target, k));
-    if (this.rescues[i - 1]) ctx.audio.say(this.rescues[i - 1].line, { priority: 2 });
+    if (this.rescues[i - 1]) await ctx.audio.say(this.rescues[i - 1].line);
   }
 
   rescue(r) {
@@ -473,6 +475,7 @@ export class Sea {
     return new Promise((resolve) => {
       const it = ctx.grab.add(r.obj, { radius: 0.16, physics: false, priority: 1 });
       it.trash = false;
+      it.label = { 1: '🛍️ 비닐봉지', 2: '🕸️ 버려진 그물', 3: '⭕ 플라스틱 고리' }[r.station];
       it.onGrab = () => {
         if (!r.done) this.free(r, true);
         it.trash = true;

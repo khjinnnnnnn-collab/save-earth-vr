@@ -140,18 +140,18 @@ async function glb(id, node, scale = 1) {
 
 /** The trash sequence for the land stage (easy → missions → bonus). */
 export const SEQUENCE = [
-  { key: 'can', cat: 'can', make: () => drinkCan() },
-  { key: 'newspaper', cat: 'paper', make: () => newspaper() },
-  { key: 'glass', cat: 'glass', make: () => glb('wine_bottles_01', 'wine_bottles_01_alsace', 0.85) },
-  { key: 'snack', cat: 'vinyl', make: () => snackBag() },
-  { key: 'juice', cat: 'plastic', need: 'empty', make: () => petBottle({ liquid: 0xff9a1f, cap: 0xff7b00 }) },
-  { key: 'gallon', cat: 'plastic', make: () => glb('plastic_bottle_gallon', null, 0.9) },
-  { key: 'box', cat: 'paper', need: 'flat', make: () => glb('cardboard_box_01', null, 0.6) },
-  { key: 'tuna', cat: 'can', make: () => glb('russian_food_cans_01', 'russian_food_cans_01_can_fish', 2.0) },
-  { key: 'pet', cat: 'plastic', need: 'peel', make: () => petBottle({ label: true }) },
-  { key: 'cup', cat: 'plastic', make: () => plasticCup() },
-  { key: 'cleaner', cat: 'plastic', make: () => glb('multi_cleaner_bottle', null, 1.0) },
-  { key: 'gold', cat: 'can', gold: true, make: () => drinkCan({ gold: true, text: 'GOLD' }) },
+  { key: 'can', name: '🥤 음료 캔', cat: 'can', make: () => drinkCan() },
+  { key: 'newspaper', name: '📰 신문지', cat: 'paper', make: () => newspaper() },
+  { key: 'glass', name: '🍾 유리병', cat: 'glass', make: () => glb('wine_bottles_01', 'wine_bottles_01_alsace', 0.85) },
+  { key: 'snack', name: '🍿 과자 봉지', cat: 'vinyl', make: () => snackBag() },
+  { key: 'juice', name: '🧃 주스 페트병', cat: 'plastic', need: 'empty', make: () => petBottle({ liquid: 0xff9a1f, cap: 0xff7b00 }) },
+  { key: 'gallon', name: '🧴 플라스틱 통', cat: 'plastic', make: () => glb('plastic_bottle_gallon', null, 0.9) },
+  { key: 'box', name: '📦 택배 상자', cat: 'paper', need: 'flat', make: () => glb('cardboard_box_01', null, 0.6) },
+  { key: 'tuna', name: '🥫 참치 캔', cat: 'can', make: () => glb('russian_food_cans_01', 'russian_food_cans_01_can_fish', 2.0) },
+  { key: 'pet', name: '💧 생수 페트병', cat: 'plastic', need: 'peel', make: () => petBottle({ label: true }) },
+  { key: 'cup', name: '🥤 플라스틱 컵', cat: 'plastic', make: () => plasticCup() },
+  { key: 'cleaner', name: '🧴 세제 통', cat: 'plastic', make: () => glb('multi_cleaner_bottle', null, 1.0) },
+  { key: 'gold', name: '✨ 황금 캔', cat: 'can', gold: true, make: () => drinkCan({ gold: true, text: 'GOLD' }) },
 ];
 
 export async function makeItem(spec) {

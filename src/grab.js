@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { textPanel } from './ui.js';
 
 const _v = new THREE.Vector3();
 const _w = new THREE.Vector3();
@@ -19,6 +20,27 @@ export class GrabSystem {
     this.hover = new Map(); // hand -> item
     this.floorAt = () => 0;
     this.world = ctx.scene;
+    this.tags = new Map(); // hand -> name tag shown above the held item
+  }
+
+  /** Floating name tag above a held item (item.label: string or () => string). */
+  updateTag(hand) {
+    let tag = this.tags.get(hand);
+    const it = hand.held;
+    const text = it && (typeof it.label === 'function' ? it.label() : it.label);
+    if (!text) { if (tag) tag.visible = false; return; }
+    if (!tag) {
+      tag = textPanel({ width: 0.42, height: 0.1, size: 60, bg: 'rgba(255,255,255,0.92)', color: '#183a2a', border: 'rgba(60,207,122,0.9)', res: 768 });
+      tag.material.depthTest = false; tag.renderOrder = 9500;
+      this.ctx.scene.add(tag);
+      this.tags.set(hand, tag);
+    }
+    if (tag.userData.text !== text) { tag.setText(text); tag.userData.text = text; }
+    tag.visible = true;
+    it.obj.getWorldPosition(_v);
+    tag.position.copy(_v).add(_w.set(0, 0.2, 0));
+    this.ctx.camera.getWorldPosition(_w);
+    tag.lookAt(_w);
   }
 
   add(obj, opts = {}) {
@@ -173,6 +195,7 @@ export class GrabSystem {
         it?.onSecondHand?.(hand);
       }
       if (hand.justReleased && hand.held) this.release(hand);
+      this.updateTag(hand);
     }
     for (const it of [...this.items]) {
       if (it.fly) {

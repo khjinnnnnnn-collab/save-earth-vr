@@ -50,41 +50,85 @@ export class AudioSys {
     }
   }
 
+  /** Clear everything (used between stages). */
   stop() {
-    if (this.current?.audio) { this.current.audio.pause(); }
+    for (const e of this.queue || []) e.resolve(false);
+    this.queue = [];
+    if (this.current?.audio) this.current.audio.pause();
     if ('speechSynthesis' in window) speechSynthesis.cancel();
-    this.current?.done?.();
-    this.current = null;
+    const cur = this.current; this.current = null;
+    cur?.finish?.(true);
+    clearTimeout(this.subTimer);
     this.ctx.ui.subtitle('');
   }
 
-  /** Speak a line. priority: a new line never interrupts a playing line with higher priority. */
-  say(id, { priority = 1 } = {}) {
-    const text = LINES[id] || id;
-    if (this.current && this.current.priority > priority) return Promise.resolve(false);
-    this.stop();
-    return new Promise((resolve) => {
-      const cur = { priority };
-      let finished = false;
-      cur.done = () => { if (finished) return; finished = true; if (this.current === cur) { this.current = null; this.ctx.ui.subtitle(''); } resolve(true); };
-      this.current = cur;
-      this.ctx.ui.subtitle(text);
-      const fallbackMs = 1200 + text.length * 110;
-      const guard = setTimeout(cur.done, fallbackMs + 4000);
-      const end = () => { clearTimeout(guard); cur.done(); };
-      if (this.manifest[id]) {
-        const a = new Audio(`assets/voice/${this.manifest[id]}`);
-        cur.audio = a;
-        a.onended = end; a.onerror = () => setTimeout(end, fallbackMs);
-        a.play().catch(() => setTimeout(end, fallbackMs));
-      } else if ('speechSynthesis' in window && this.voice) {
-        const u = new SpeechSynthesisUtterance(text);
-        u.voice = this.voice; u.lang = 'ko-KR'; u.rate = 1.05; u.pitch = 1.25;
-        u.onend = end; u.onerror = end;
-        speechSynthesis.speak(u);
-      } else {
-        setTimeout(end, fallbackMs);
-      }
-    });
+  /** True while a line is playing or waiting. */
+  get busy() { return !!this.current || (this.queue?.length ?? 0) > 0; }
+
+  /** Resolves when every queued line has been spoken. */
+  idle() { return this.ctx.until(() => !this.busy); }
+
+  /**
+   * Queue a line. Lines never cut each other off: each one is spoken (and subtitled) in turn.
+   * hint: true marks a repeatable tip — only the newest waiting tip is kept, and stale tips are dropped.
+   */
+  say(id, { hint = false } = {}) {
+    this.queue = this.queue || [];
+    if (hint) {
+      if (this.current?.id === id) return Promise.resolve(false);
+      this.queue = this.queue.filter((e) => { if (e.hint) { e.resolve(false); return false; } return true; });
+    } else if (this.queue.some((e) => e.id === id)) {
+      return this.queue.find((e) => e.id === id).promise;
+    }
+    let resolve;
+    const promise = new Promise((r) => (resolve = r));
+    this.queue.push({ id, hint, resolve, promise, t: performance.now() });
+    this.pump();
+    return promise;
+  }
+
+  pump() {
+    if (this.current || !this.queue.length) return;
+    const e = this.queue.shift();
+    if (e.hint && performance.now() - e.t > 6000) { e.resolve(false); this.pump(); return; }
+    this.play(e);
+  }
+
+  play(e) {
+    const text = LINES[e.id] || e.id;
+    const cur = { id: e.id };
+    this.current = cur;
+    clearTimeout(this.subTimer);
+    this.ctx.ui.subtitle(text);
+    const started = performance.now();
+    // a subtitle stays at least long enough to read, even if the voice is quick or missing
+    const readMs = 1500 + text.length * 120;
+    let done = false;
+    cur.finish = (aborted = false) => {
+      if (done) return; done = true;
+      clearTimeout(guard);
+      const rest = aborted ? 0 : Math.max(0, readMs - (performance.now() - started));
+      setTimeout(() => {
+        if (this.current === cur) this.current = null;
+        if (!aborted) this.subTimer = setTimeout(() => { if (!this.current) this.ctx.ui.subtitle(''); }, 700);
+        e.resolve(!aborted);
+        if (!aborted) setTimeout(() => this.pump(), 250);
+      }, rest);
+    };
+    const guard = setTimeout(() => cur.finish(), readMs + 9000);
+    const end = () => cur.finish();
+    if (this.manifest[e.id]) {
+      const a = new Audio(`assets/voice/${this.manifest[e.id]}`);
+      cur.audio = a;
+      a.onended = end; a.onerror = end;
+      a.play().catch(end);
+    } else if ('speechSynthesis' in window && this.voice) {
+      const u = new SpeechSynthesisUtterance(text);
+      u.voice = this.voice; u.lang = 'ko-KR'; u.rate = 1.0; u.pitch = 1.2;
+      u.onend = end; u.onerror = end;
+      speechSynthesis.speak(u);
+    } else {
+      end();
+    }
   }
 }
