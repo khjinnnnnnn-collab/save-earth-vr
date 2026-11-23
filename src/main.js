@@ -9,6 +9,7 @@ import { Intro, Placeholder } from './stages/space.js';
 import { Land, LAND_MODELS } from './stages/land.js';
 import { Ending } from './stages/ending.js';
 import { Sea } from './stages/sea.js';
+import { SkyStage } from './stages/sky.js';
 
 const params = new URLSearchParams(location.search);
 const engine = createEngine(document.body);
@@ -26,7 +27,7 @@ const STAGES = {
   intro: () => new Intro(ctx),
   land: () => new Land(ctx),
   sea: () => new Sea(ctx),
-  sky: () => new Placeholder(ctx, 'sky'),
+  sky: () => new SkyStage(ctx),
   ending: () => new Ending(ctx),
 };
 const ORDER = ['intro', 'land', 'sea', 'sky', 'ending'];
