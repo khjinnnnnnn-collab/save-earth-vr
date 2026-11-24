@@ -339,15 +339,54 @@ export class Sea {
   buildTrash() {
     const kinds = [() => seaTrash('slipper'), () => litterBottle(), () => seaTrash('foam'), () => litterCan(), () => seaTrash('line'), () => litterBag(), () => litterBottle(), () => seaTrash('slipper'), () => litterCan()];
     this.trashNames = ['🩴 슬리퍼', '💧 페트병', '⬜ 스티로폼', '🥤 음료 캔', '🧵 낚싯줄', '🍿 과자 봉지', '💧 페트병', '🩴 슬리퍼', '🥤 음료 캔'];
+    // always in front of the diver (never behind): left, right, and up high around the animal
+    const spots = [[-0.75, 1.15, -0.75], [0.75, 1.25, -0.8], [0.45, 1.6, -0.95]];
     this.floaters = kinds.map((mk, i) => {
       const st = STATIONS[1 + Math.floor(i / 3)];
-      const side = [-1, 1, -0.2][i % 3];
+      const [dx, dy, dz] = spots[i % 3];
+      const flip = Math.floor(i / 3) === 1 ? -1 : 1;
       const o = uniqueMaterials(mk());
-      o.position.set(st.x + side * rand(0.55, 0.8), rand(1.0, 1.5), st.z + rand(-0.9, -0.3) + (i % 3 === 2 ? 1.6 : 0));
+      o.position.set(st.x + dx * flip + rand(-0.08, 0.08), dy + rand(-0.08, 0.08), st.z + dz + rand(-0.1, 0.1));
       o.rotation.set(rand(0, 3), rand(0, 3), rand(0, 3));
       this.sea.add(o);
       return o;
     });
+    // soft golden halo that makes floating trash easy to spot
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const g = c.getContext('2d');
+    const grd = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    grd.addColorStop(0, 'rgba(255,255,220,1)'); grd.addColorStop(0.35, 'rgba(255,230,120,0.55)'); grd.addColorStop(1, 'rgba(255,210,80,0)');
+    g.fillStyle = grd; g.fillRect(0, 0, 128, 128);
+    this.haloTex = new THREE.CanvasTexture(c);
+    this.halos = new Map();
+  }
+
+  halo(it) {
+    let h = this.halos.get(it);
+    if (!h) {
+      h = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.haloTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+      h.renderOrder = 5;
+      this.ctx.scene.add(h);
+      this.halos.set(it, h);
+    }
+    return h;
+  }
+
+  updateHalos(t) {
+    const live = new Set();
+    for (const it of this.ctx.grab.items) {
+      if (!it.trash || it.bagged || !it.enabled || !this.underwater) continue;
+      live.add(it);
+      const h = this.halo(it);
+      it.obj.getWorldPosition(h.position);
+      const ph = t * 4 + (it.home?.x || 0) * 3;
+      h.visible = true;
+      h.material.opacity = it.heldBy ? 0.25 : 0.55 + 0.35 * Math.sin(ph);
+      h.scale.setScalar(it.heldBy ? 0.3 : 0.42 + 0.08 * Math.sin(ph));
+      // a little twinkle now and then
+      if (!it.heldBy && Math.random() < 0.012) this.ctx.fx.burst(h.position, 0xfff4a0, { n: 4, speed: 0.35, size: 0.025, life: 0.6 });
+    }
+    for (const [it, h] of this.halos) if (!live.has(it)) h.visible = false;
   }
 
   // ---------------------------------------------------------------- run
@@ -465,8 +504,12 @@ export class Sea {
       }, desktop ? 2.5 : 7);
     }
     const from = ctx.rig.position.clone();
+    const delta = target.clone().sub(from);
+    // trash still floating around drifts along with the diver, so it never ends up behind them
+    const left = [...ctx.grab.items].filter((it) => it.trash && !it.bagged && !it.heldBy && it.home && it.enabled && it.home.z > from.z - 2.5);
+    const homes = left.map((it, j) => { const a = it.home.clone(); const b = a.clone().add(delta); b.x = target.x + (j % 2 ? 0.55 : -0.55) * (1 + 0.25 * Math.floor(j / 2)); b.y = 0.95 + (j % 3) * 0.15; b.z = target.z - 0.6 - 0.1 * (j % 3); return [a, b]; });
     ctx.audio.sfx('whoosh');
-    await ctx.tween(2.6, (k) => ctx.rig.position.lerpVectors(from, target, k));
+    await ctx.tween(2.6, (k) => { ctx.rig.position.lerpVectors(from, target, k); left.forEach((it, j) => it.home.lerpVectors(homes[j][0], homes[j][1], k)); });
     if (this.rescues[i - 1]) await ctx.audio.say(this.rescues[i - 1].line);
   }
 
@@ -569,8 +612,9 @@ export class Sea {
     }
     if (this.friendsHappy) { this.turtle.position.y = 0.12 + Math.abs(Math.sin(t * 3)) * 0.08; this.seal.rotation.z = Math.sin(t * 4) * 0.12; }
     // floating trash bobs gently
-    for (const it of this.trashItems || []) if (!it.heldBy && !it.bagged && it.home) { it.obj.position.y = it.home.y + Math.sin(t * 1.3 + it.home.x) * 0.04; it.obj.rotation.y += dt * 0.3; }
-    for (const r of this.rescues) if (r.item && !r.item.heldBy && !r.item.bagged && r.done && r.item.home) r.item.obj.position.y = r.item.home.y + Math.sin(t * 1.3) * 0.04;
+    for (const it of this.trashItems || []) if (!it.heldBy && !it.bagged && it.home) { it.obj.position.set(it.home.x, it.home.y + Math.sin(t * 1.3 + it.home.x) * 0.04, it.home.z); it.obj.rotation.y += dt * 0.3; }
+    this.updateHalos(t);
+    for (const r of this.rescues) if (r.item && !r.item.heldBy && !r.item.bagged && r.done && r.item.home) r.item.obj.position.set(r.item.home.x, r.item.home.y + Math.sin(t * 1.3) * 0.04, r.item.home.z);
     // bubbles + light shafts
     const a = this.bubbles.geometry.attributes.position;
     for (let i = 0; i < a.count; i++) { let y = a.getY(i) + dt * (0.3 + (i % 5) * 0.08); if (y > 5) y = FLOOR; a.setY(i, y); a.setX(i, a.getX(i) + Math.sin(t * 2 + i) * 0.002); }
@@ -581,6 +625,7 @@ export class Sea {
 
   dispose() {
     this.offs.forEach((f) => f());
+    for (const h of this.halos?.values() || []) h.removeFromParent();
     this.overlay?.removeFromParent(); this.bag?.removeFromParent(); this.gauge?.removeFromParent();
     this.ctx.rig.position.set(0, 0, 0);
     this.ctx.grab.clear();

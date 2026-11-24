@@ -333,6 +333,7 @@ float vn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix
     this.queue = [...this.specs];
     this.live = new Set();
     this.said = new Set();
+    this.tagN = 0;
     this.lastProgress = 0;
     this.finished = false;
     this.elapsed = 0;
@@ -374,7 +375,7 @@ float vn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix
   }
 
   spawnNext() {
-    while (!this.finishing && [...this.live].filter((i) => !i.heldBy).length < MAX_ON_TABLE && this.queue.length) {
+    while (!this.finishing && this.live.size < MAX_ON_TABLE && this.queue.length) {
       const slot = this.freeSlot();
       if (slot < 0) return;
       this.spawn(this.queue.shift(), slot);
@@ -400,6 +401,8 @@ float vn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix
       return spec.name;
     };
     item.bottom = 0;
+    // lines about this piece are dropped as soon as it is sorted (no stale tips)
+    item.tag = spec.parentTag || `trash${++this.tagN}`;
     this.live.add(item);
     ctx.fx.burst(obj.position, 0xffffff, { n: 14, speed: 0.8, size: 0.03 });
     ctx.audio.sfx('sparkle');
@@ -407,8 +410,7 @@ float vn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix
     item.onGrab = () => {
       this.lastProgress = Math.max(this.lastProgress, this.elapsed - 4);
       const hint = { juice: 'land_full', pet: 'land_label', box: 'land_box', gold: 'land_gold' }[spec.key];
-      if (hint && !this.said.has(hint) && (spec.key === 'gold' || spec.blocked())) { this.said.add(hint); ctx.audio.say(hint); }
-      setTimeout(() => this.spawnNext(), 400);
+      if (hint && !this.said.has(hint) && (spec.key === 'gold' || spec.blocked())) { this.said.add(hint); ctx.audio.say(hint, { tag: item.tag }); }
     };
     item.onRelease = (hand, vel, heldFor) => this.onThrow(item, hand, vel, heldFor);
     item.onStep = () => this.checkBins(item);
@@ -433,7 +435,7 @@ float vn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix
         lq.scale.y = Math.max(0.001, level);
         drip += dt;
         if (drip > 0.08) { drip = 0; item.obj.localToWorld(wp.set(0, 0.29, 0)); ctx.fx.burst(wp, 0xffa63a, { n: 4, speed: 0.3, size: 0.03, gravity: 6, up: -1, life: 0.6 }); ctx.audio.sfx('pour'); }
-        if (level <= 0) { spec.state.emptied = true; lq.visible = false; item.obj.getWorldPosition(wp); ctx.fx.burst(wp, 0x9ff7c4, { n: 24 }); ctx.audio.sfx('good'); ctx.audio.say('land_emptied'); this.lastProgress = this.elapsed; }
+        if (level <= 0) { spec.state.emptied = true; lq.visible = false; item.obj.getWorldPosition(wp); ctx.fx.burst(wp, 0x9ff7c4, { n: 24 }); ctx.audio.sfx('good'); ctx.audio.drop(item.tag, 'land_full'); ctx.audio.say('land_emptied', { tag: item.tag }); this.lastProgress = this.elapsed; }
       }
     };
     item.onHeld = pour;
@@ -452,7 +454,7 @@ float vn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix
     this.ctx.tween(0.3, (k) => inner.scale.set(s0.x * (1 + 0.25 * k), s0.y * (1 - 0.85 * k), s0.z * (1 + 0.1 * k)));
     const wp = item.obj.getWorldPosition(new THREE.Vector3());
     this.ctx.fx.burst(wp, 0xd9b38c, { n: 18, speed: 1 });
-    this.ctx.audio.say('land_box_done');
+    this.ctx.audio.drop(item.tag, 'land_box'); this.ctx.audio.say('land_box_done', { tag: item.tag });
     this.lastProgress = this.elapsed;
   }
 
@@ -474,7 +476,7 @@ float vn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix
       const slot = this.freeSlot();
       const li = this.spawn(lspec, slot >= 0 ? slot : item.slot);
       li.obj.position.copy(wp); li.obj.position.y += 0.05;
-      ctx.audio.say('land_label_done');
+      ctx.audio.drop(item.tag, 'land_label'); ctx.audio.say('land_label_done', { tag: item.tag });
       this.lastProgress = this.elapsed;
     };
     item.onSecondHand = peel;
@@ -560,7 +562,7 @@ float vn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix
       u.anim = { kind: 'shake', t: 0 }; u.setFace('wrong');
       ctx.audio.sfx('wrong');
       const hint = spec.blocked() ? ({ empty: 'land_full', flat: 'land_box', peel: 'land_label' }[spec.need]) : `land_hint_${spec.cat}`;
-      ctx.audio.say(hint, { hint: true });
+      ctx.audio.say(hint, { hint: true, tag: item.tag });
       const slot = this.freeSlot();
       item.slot = slot >= 0 ? slot : item.slot;
       const target = new THREE.Vector3(SLOTS[item.slot], TABLE.y + 0.1, TABLE.z);
@@ -580,6 +582,7 @@ float vn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix
     item.enabled = false;
     item.physics = false;
     this.live.delete(item);
+    ctx.audio.drop(item.tag);
     if (item.labelGrab) ctx.grab.items.delete(item.labelGrab);
     const from = item.obj.position.clone();
     const to = new THREE.Vector3(bin.position.x, u.H * 0.4, bin.position.z);

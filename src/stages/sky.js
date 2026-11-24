@@ -5,9 +5,14 @@ import { textPanel } from '../ui.js';
 import { collectOrb } from './common.js';
 
 const G = -5; // city ground level (the balloon floats above it)
-const FIX_LIMIT = 60;
+const FIX_LIMIT = 80;
 const SEED_LIMIT = 25;
 const MONSTER = new THREE.Vector3(0, 4.2, -18);
+const QUIZ = {
+  plant: { q: 'sky_q_plant', text: '석탄을 태워 전기를 만들면 검은 연기가 나와요.\n연기 없이 전기를 만드는 방법은?', answers: ['🌬️ 바람과 햇빛으로 전기 만들기', '🔥 석탄을 더 많이 태우기', '🛢️ 기름을 태워서 전기 만들기'] },
+  road: { q: 'sky_q_road', text: '자동차가 많으면 나쁜 매연이 나와요.\n우리가 할 수 있는 일은?', answers: ['🚌 버스·자전거 타기, 가까우면 걷기', '🚗 가까운 곳도 자동차 타고 가기', '💨 세워 둔 차 시동 계속 켜 두기'] },
+  factory: { q: 'sky_q_factory', text: '공장 굴뚝 연기 속에 많이 들어 있어서\n숨쉬기 힘들게 하는 것은?', answers: ['😷 미세먼지', '🌸 꽃향기', '💧 깨끗한 물'] },
+};
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -153,9 +158,14 @@ export class SkyStage {
       sign.position.copy(target).add(new THREE.Vector3(0, 2.2, 0));
       sign.lookAt(0, 1.3, 0);
       R.add(sign);
-      const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 12), new THREE.MeshBasicMaterial({ color: 0xff3b3b, transparent: true, opacity: 0.4, depthWrite: false }));
+      const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.8, 20, 14), new THREE.MeshBasicMaterial({ color: 0xff2a2a, transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
       beacon.position.copy(target); R.add(beacon);
-      return { key, name, line, fixLine, sol, group: g, sign, beacon, target: target.clone(), emitters: [], fixed: false, found: false, hover: 0 };
+      const core = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 12), new THREE.MeshBasicMaterial({ color: 0xff5050, fog: false }));
+      beacon.add(core);
+      // a tall red light column that is visible through the smog
+      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 16, 20, 1, true).translate(0, 8, 0), new THREE.MeshBasicMaterial({ color: 0xff3030, transparent: true, opacity: 0.3, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false }));
+      pillar.position.set(target.x, G, target.z); R.add(pillar);
+      return { key, name, line, fixLine, sol, group: g, sign, beacon, pillar, target: target.clone(), emitters: [], fixed: false, found: false, hover: 0 };
     };
     // coal power plant
     const plant = mk('plant', '🏭 석탄 화력발전소', 'sky_plant', 'sky_fixed_plant', 'wind', new THREE.Vector3(-8, G, -10.5), new THREE.Vector3(-8, G + 3, -10.5));
@@ -247,33 +257,6 @@ export class SkyStage {
     // tray at the front of the basket with the three solution blocks + seed bowl
     const tray = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.04, 0.3), M.wood); tray.position.set(0, 0.66, -0.72);
     R.add(tray);
-    const block = (kind) => {
-      const g = new THREE.Group();
-      const base = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.06, 0.16), std(0xffffff, { roughness: 0.4 }));
-      base.position.y = 0.03; g.add(base);
-      if (kind === 'wind') {
-        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.012, 0.2, 6), std(0xffffff)); pole.position.y = 0.16;
-        const hub = new THREE.Group(); hub.position.set(0, 0.26, 0.02);
-        for (let k = 0; k < 3; k++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.1, 0.006).translate(0, 0.05, 0), std(0xffffff)); b.rotation.z = (k / 3) * Math.PI * 2; hub.add(b); }
-        const panel = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.008, 0.06), std(0x1f3f8a, { metalness: 0.6 })); panel.position.set(-0.04, 0.07, 0.04); panel.rotation.x = -0.5;
-        g.add(pole, hub, panel); g.userData.spin = hub;
-        base.material.color.set(0x8fd3ff);
-      } else if (kind === 'bus') {
-        const b = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.06, 0.07), std(0x2fbf71)); b.position.y = 0.1;
-        const w = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.02, 0.072), std(0xcfe8ff)); w.position.y = 0.115;
-        const bike = new THREE.Mesh(new THREE.TorusGeometry(0.02, 0.005, 6, 12), std(0x222222)); bike.position.set(0.05, 0.15, 0.04);
-        g.add(b, w, bike); base.material.color.set(0xb9f5c9);
-      } else {
-        const f = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.08, 14), std(0x2fd18a, { emissive: 0x0a4a2a })); f.position.y = 0.1;
-        const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.047, 0.047, 0.02, 14), std(0xffffff)); mesh.position.y = 0.13;
-        g.add(f, mesh); base.material.color.set(0xd8ffe8);
-      }
-      return g;
-    };
-    this.blocks = [['wind', '🌬️ 풍력·태양광 발전', -0.36], ['bus', '🚌 전기버스·자전거', 0, ], ['filter', '🧹 매연 거름 필터', 0.36]].map(([kind, label, x]) => {
-      const g = block(kind); g.position.set(x, 0.68, -0.72); R.add(g);
-      return { kind, label, obj: g, home: g.position.clone(), used: false };
-    });
     this.seeds = Array.from({ length: 5 }, (_, i) => {
       const g = new THREE.Group();
       const ball = new THREE.Mesh(new THREE.SphereGeometry(0.045, 16, 12), std(0x6b4a2a, { roughness: 0.9 }));
@@ -284,10 +267,27 @@ export class SkyStage {
       g.visible = false; R.add(g);
       return { obj: g, home: g.position.clone(), used: false };
     });
+    this.buildQuiz();
     this.gauge = this.ctx.ui.gauge({ width: 0.8, label: '☁️ 하늘 회복', color: '#9ad7ff' });
     this.gauge.position.set(0, 2.15, -1.5);
     this.gauge.lookAt(0, 1.4, 0);
     R.add(this.gauge);
+  }
+
+  /** Quiz board floating in front of the basket: a question and three answer buttons. */
+  buildQuiz() {
+    const R = this.root;
+    this.qPanel = textPanel({ width: 1.25, height: 0.36, size: 50, bg: 'rgba(30,40,80,0.9)', border: 'rgba(255,230,120,0.95)' });
+    this.qPanel.position.set(0, 1.52, -1.05);
+    this.qPanel.visible = false;
+    R.add(this.qPanel);
+    this.buttons = [0, 1, 2].map((i) => {
+      const b = textPanel({ width: 1.05, height: 0.15, size: 50, bg: 'rgba(255,255,255,0.94)', color: '#1d3557', border: 'rgba(74,168,255,0.9)', weight: 800 });
+      b.position.set(0, 1.27 - i * 0.18, -0.98);
+      b.visible = false;
+      R.add(b);
+      return { mesh: b, home: b.position.clone(), idx: i, item: null };
+    });
   }
 
   buildMonster() {
@@ -342,14 +342,7 @@ export class SkyStage {
     await audio.say('sky_start');
     audio.say('sky_find');
     this.phase = 'fix';
-    // solution blocks
-    for (const b of this.blocks) {
-      const it = grab.add(b.obj, { radius: 0.12, physics: false });
-      it.label = b.label;
-      it.onGrab = () => { b.heldSince = ctx.time; if (!this.saidBlock) { this.saidBlock = true; audio.say('sky_block', { hint: true }); } };
-      it.onRelease = (hand, vel, heldFor) => this.releaseBlock(b, it, hand, vel, heldFor);
-      b.item = it;
-    }
+    this.lastQuiz = ctx.time;
     this.fixStart = ctx.time;
     await ctx.until(() => this.sources.every((s) => s.fixed) || ctx.time - this.fixStart > FIX_LIMIT);
     const late = !this.sources.every((s) => s.fixed);
@@ -357,7 +350,7 @@ export class SkyStage {
       await audio.say('sky_timeup');
       for (const s of this.sources) if (!s.fixed) { this.fix(s, false); await ctx.wait(0.6); }
     }
-    for (const b of this.blocks) if (b.item) { ctx.grab.remove(b.item); }
+    this.closeQuiz();
     await audio.idle();
 
     // seed bombs → forests eat the remaining carbon clouds
@@ -397,39 +390,61 @@ export class SkyStage {
   /** angle (deg) between a direction and the direction from p to q */
   angleTo(p, dir, q) { const v = q.clone().sub(p).normalize(); return THREE.MathUtils.radToDeg(Math.acos(THREE.MathUtils.clamp(v.dot(dir), -1, 1))); }
 
-  aimedSource(hand, vel) {
-    let best = null, bestA = Infinity;
-    const p = hand.isDesktop ? hand.rayOrigin : hand.pos;
-    const throwDir = vel && vel.length() > 1.0 ? vel.clone().normalize() : null;
-    for (const s of this.sources) {
-      if (s.fixed) continue;
-      const aRay = this.angleTo(p, hand.rayDir, s.target);
-      const aThrow = throwDir ? this.angleTo(p, throwDir, s.target) : 999;
-      const a = Math.min(aRay, aThrow * 0.7);
-      if (a < bestA) { bestA = a; best = s; }
-    }
-    return bestA < 16 ? best : null;
+  /** Open the quiz for a pollution source (pointed at, or offered after a pause). */
+  openQuiz(s) {
+    const { ctx } = this;
+    if (this.quiz || s.fixed || this.phase !== 'fix') return;
+    const Q = QUIZ[s.key];
+    this.quiz = { s, wrong: new Set() };
+    this.reveal(s);
+    ctx.audio.sfx('pop');
+    this.qPanel.setText(`${s.name}\n${Q.text}`, { size: 46 });
+    this.qPanel.visible = true;
+    // shuffle answer order (answers[0] is the right one)
+    const order = [0, 1, 2].sort(() => Math.random() - 0.5);
+    this.buttons.forEach((b, i) => {
+      b.answer = order[i];
+      b.mesh.setText(`${['①', '②', '③'][i]} ${Q.answers[b.answer]}`);
+      b.mesh.material.opacity = 1;
+      b.mesh.position.copy(b.home);
+      b.mesh.visible = true;
+      b.mesh.scale.setScalar(0.001);
+      b.popping = true;
+      ctx.tween(0.3, (k) => b.mesh.scale.setScalar(Math.max(0.001, k))).then(() => (b.popping = false));
+      const it = ctx.grab.add(b.mesh, { radius: 0.1, physics: false, priority: 3 });
+      it.onGrab = (hand) => { ctx.grab.release(hand); b.mesh.position.copy(b.home); b.mesh.rotation.set(0, 0, 0); this.answer(b); };
+      it.onRelease = () => {};
+      b.item = it;
+    });
+    ctx.audio.say(Q.q, { tag: 'quiz', sub: false });
   }
 
-  releaseBlock(b, it, hand, vel, heldFor) {
+  answer(b) {
     const { ctx } = this;
-    const intent = hand.isDesktop ? hand.dragDist > 0.12 : heldFor > 0.15;
-    const target = intent ? this.aimedSource(hand, vel) : null;
-    if (!target) { this.returnHome(b.obj, b.home); return; }
-    it.enabled = false;
-    const from = b.obj.position.clone(), to = target.target.clone();
-    ctx.audio.sfx('whoosh');
-    ctx.tween(0.9, (k) => { b.obj.position.lerpVectors(from, to, k); b.obj.position.y += Math.sin(k * Math.PI) * 2; b.obj.scale.setScalar(1 + k * 6); }, (x) => x).then(() => {
-      if (target.sol === b.kind) {
-        b.obj.visible = false; b.used = true;
-        ctx.grab.remove(it); b.item = null;
-        this.fix(target, true);
-      } else {
-        target.found = true; this.reveal(target);
-        ctx.audio.sfx('wrong'); ctx.audio.say('sky_wrong', { hint: true });
-        b.obj.scale.setScalar(1); this.returnHome(b.obj, b.home, true); it.enabled = true;
-      }
-    });
+    const q = this.quiz;
+    if (!q || q.wrong.has(b.idx) || q.solved) return;
+    if (b.answer === 0) {
+      q.solved = true;
+      ctx.audio.drop('quiz');
+      b.mesh.draw((g, w, h) => { g.fillStyle = 'rgba(40,190,100,0.95)'; g.beginPath(); g.roundRect(4, 4, w - 8, h - 8, 40); g.fill(); g.fillStyle = '#fff'; g.font = '800 50px "Noto Sans KR",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(`⭕ 정답! ${QUIZ[q.s.key].answers[0]}`, w / 2, h / 2); });
+      ctx.fx.burst(b.mesh.getWorldPosition(new THREE.Vector3()), 0x7cff9a, { n: 30, speed: 1.2, size: 0.05 });
+      ctx.audio.sfx('sparkle');
+      ctx.wait(1.0).then(() => { this.closeQuiz(); this.fix(q.s, true); this.lastQuiz = ctx.time; });
+    } else {
+      q.wrong.add(b.idx);
+      ctx.audio.sfx('wrong');
+      b.mesh.material.opacity = 0.35;
+      if (b.item) b.item.enabled = false;
+      const x0 = b.home.x;
+      ctx.tween(0.4, (k) => (b.mesh.position.x = x0 + Math.sin(k * Math.PI * 6) * 0.03 * (1 - k)));
+      ctx.audio.say('sky_wrong', { hint: true, tag: 'quiz', sub: false });
+    }
+  }
+
+  closeQuiz() {
+    for (const b of this.buttons) { if (b.item) { this.ctx.grab.items.delete(b.item); b.item = null; } b.mesh.visible = false; }
+    this.qPanel.visible = false;
+    this.quiz = null;
   }
 
   returnHome(obj, home, fromFar = false) {
@@ -442,7 +457,6 @@ export class SkyStage {
     s.revealed = true;
     s.sign.setText(s.name, { size: 110 });
     s.sign.material.color = new THREE.Color(1, 1, 1);
-    this.ctx.audio.say(s.line);
   }
 
   fix(s, celebrate) {
@@ -450,7 +464,7 @@ export class SkyStage {
     if (s.fixed) return;
     s.fixed = true; s.found = true;
     if (!s.revealed) { s.revealed = true; s.sign.setText(s.name, { size: 110 }); }
-    s.beacon.visible = false;
+    s.beacon.visible = false; s.pillar.visible = false;
     s.sign.draw((g, w, h) => { g.fillStyle = 'rgba(40,170,90,0.9)'; g.beginPath(); g.roundRect(4, 4, w - 8, h - 8, 40); g.fill(); g.fillStyle = '#fff'; g.font = `800 110px "Noto Sans KR",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('✅ 해결!', w / 2, h / 2); });
     (s.old || []).forEach((o) => ctx.tween(0.6, (k) => o.scale.setScalar(Math.max(0.001, 1 - k))).then(() => (o.visible = false)));
     if (s.fix) { s.fix.visible = true; s.fix.scale.setScalar(0.001); ctx.tween(0.8, (k) => s.fix.scale.setScalar(Math.max(0.001, k)), (x) => 1 + 2.7 * Math.pow(x - 1, 3) + 1.7 * Math.pow(x - 1, 2)); }
@@ -461,7 +475,10 @@ export class SkyStage {
     this.monsterSize -= 0.2;
     this.face.material.map = this.faces.dizzy; this.dizzyUntil = ctx.time + 2.5;
     this.progress(1);
-    if (celebrate) ctx.audio.say(s.fixLine);
+    if (celebrate) {
+      ctx.audio.say(s.fixLine);
+      if (this.sources.some((x) => !x.fixed)) ctx.audio.say('sky_next');
+    }
   }
 
   releaseSeed(s, it, hand, vel, heldFor) {
@@ -519,21 +536,34 @@ export class SkyStage {
     const cur = this.monster.scale.x;
     if (this.monster.visible && this.phase !== 'done') { const s = cur + (target - cur) * Math.min(1, dt * 2); this.monster.scale.set(s * (1 + Math.sin(t * 2) * 0.03), s * (1 + Math.cos(t * 2.3) * 0.03), s); this.monster.position.y = MONSTER.y + Math.sin(t * 0.8) * 0.3; }
     if (this.dizzyUntil && ctx.time > this.dizzyUntil) { this.face.material.map = this.faces.angry; this.dizzyUntil = 0; }
-    // beacons pulse; pointing at a source reveals what it is
+    // beacons pulse strongly; pointing at one opens its quiz
     for (const s of this.sources) {
-      if (!s.fixed) { s.beacon.material.opacity = 0.25 + 0.25 * Math.sin(t * 6); s.beacon.scale.setScalar(1 + 0.2 * Math.sin(t * 6)); }
-      if (this.phase === 'fix' && !s.revealed) {
-        const pointing = ctx.input.active.some((h) => this.angleTo(h.isDesktop ? h.rayOrigin : h.pos, h.rayDir, s.target) < 9);
+      if (!s.fixed) {
+        const w = 0.5 + 0.5 * Math.sin(t * 7);
+        const active = this.quiz?.s === s;
+        s.beacon.material.opacity = 0.35 + 0.55 * w;
+        s.beacon.scale.setScalar((active ? 1.5 : 1) + 0.45 * w);
+        s.pillar.material.opacity = 0.15 + 0.3 * w;
+        s.sign.scale.setScalar(1 + 0.08 * w);
+      }
+      if (this.phase === 'fix' && !s.fixed && !this.quiz) {
+        const pointing = ctx.input.active.some((h) => this.angleTo(h.isDesktop ? h.rayOrigin : h.pos, h.rayDir, s.target) < 10);
         s.hover = pointing ? s.hover + dt : 0;
-        if (s.hover > 0.5) this.reveal(s);
+        if (s.hover > 0.5) this.openQuiz(s);
       }
       s.sign.lookAt(ctx.camera.getWorldPosition(new THREE.Vector3()));
     }
-    // a held block that's been dithering for a while: blink the right place
-    for (const b of this.blocks) {
-      if (b.item?.heldBy && ctx.time - (b.heldSince || 0) > 8) { const s = this.sources.find((x) => x.sol === b.kind); if (s && !s.fixed) { s.beacon.material.color.set(Math.sin(t * 10) > 0 ? 0xffe14d : 0xff3b3b); s.beacon.scale.setScalar(2); } }
-      else this.sources.forEach((s) => s.beacon.material.color.set(0xff3b3b));
-      if (b.obj.userData.spin) b.obj.userData.spin.rotation.z += dt * 3;
+    // nobody found a red spot for a while: offer the next quiz anyway
+    if (this.phase === 'fix' && !this.quiz && !ctx.audio.busy && ctx.time - this.lastQuiz > 9) {
+      const s = this.sources.find((x) => !x.fixed);
+      if (s) this.openQuiz(s);
+    }
+    // answer buttons grow a little under the laser / hand
+    const hovered = new Set(ctx.input.active.map((h) => ctx.grab.hover.get(h)).filter(Boolean));
+    for (const b of this.buttons) {
+      if (!b.mesh.visible || !b.item || b.popping) continue;
+      const on = hovered.has(b.item);
+      b.mesh.scale.setScalar(b.mesh.scale.x + ((on ? 1.07 : 1) - b.mesh.scale.x) * Math.min(1, dt * 12));
     }
     this.turbines.forEach((h) => (h.rotation.z += dt * 2.5));
     if (this.bikes.visible) this.bikes.children.forEach((o, i) => { o.position.x += dt * (i < 3 ? 1.0 : 0.6); if (o.position.x > 10) o.position.x = -10; });

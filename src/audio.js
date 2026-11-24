@@ -72,7 +72,7 @@ export class AudioSys {
    * Queue a line. Lines never cut each other off: each one is spoken (and subtitled) in turn.
    * hint: true marks a repeatable tip — only the newest waiting tip is kept, and stale tips are dropped.
    */
-  say(id, { hint = false } = {}) {
+  say(id, { hint = false, tag = null, sub = true } = {}) {
     this.queue = this.queue || [];
     if (hint) {
       if (this.current?.id === id) return Promise.resolve(false);
@@ -82,9 +82,20 @@ export class AudioSys {
     }
     let resolve;
     const promise = new Promise((r) => (resolve = r));
-    this.queue.push({ id, hint, resolve, promise, t: performance.now() });
+    this.queue.push({ id, hint, tag, sub, resolve, promise, t: performance.now() });
     this.pump();
     return promise;
+  }
+
+  /**
+   * Drop every line tied to something that no longer matters (e.g. a piece of trash that was just sorted).
+   * Waiting lines are removed; the line being spoken ends once it has been on screen for a moment.
+   */
+  drop(tag, id = null) {
+    if (!tag || !this.queue) return;
+    const hit = (e) => e.tag === tag && (!id || e.id === id);
+    this.queue = this.queue.filter((e) => { if (hit(e)) { e.resolve(false); return false; } return true; });
+    if (this.current && hit(this.current)) this.current.cut?.();
   }
 
   pump() {
@@ -96,24 +107,35 @@ export class AudioSys {
 
   play(e) {
     const text = LINES[e.id] || e.id;
-    const cur = { id: e.id };
+    const cur = { id: e.id, tag: e.tag };
     this.current = cur;
     clearTimeout(this.subTimer);
-    this.ctx.ui.subtitle(text);
+    // sub: false — the text is already on screen (e.g. a quiz board), so no subtitle on top of it
+    this.ctx.ui.subtitle(e.sub === false ? '' : text);
     const started = performance.now();
     // a subtitle stays at least long enough to read, even if the voice is quick or missing
     const readMs = 1500 + text.length * 120;
     let done = false;
-    cur.finish = (aborted = false) => {
-      if (done) return; done = true;
-      clearTimeout(guard);
-      const rest = aborted ? 0 : Math.max(0, readMs - (performance.now() - started));
+    const settle = (rest, aborted) => {
       setTimeout(() => {
         if (this.current === cur) this.current = null;
         if (!aborted) this.subTimer = setTimeout(() => { if (!this.current) this.ctx.ui.subtitle(''); }, 700);
         e.resolve(!aborted);
         if (!aborted) setTimeout(() => this.pump(), 250);
       }, rest);
+    };
+    cur.finish = (aborted = false) => {
+      if (done) return; done = true;
+      clearTimeout(guard);
+      settle(aborted ? 0 : Math.max(0, readMs - (performance.now() - started)), aborted);
+    };
+    // the thing this line was about is already done: wrap up quickly (but never flash a line away)
+    cur.cut = () => {
+      if (done) return; done = true;
+      clearTimeout(guard);
+      cur.audio?.pause();
+      if (!cur.audio && 'speechSynthesis' in window) speechSynthesis.cancel();
+      settle(Math.max(0, 1200 - (performance.now() - started)), false);
     };
     const guard = setTimeout(() => cur.finish(), readMs + 9000);
     const end = () => cur.finish();
