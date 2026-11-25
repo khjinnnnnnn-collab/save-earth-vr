@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {artMaterial} from './library.js?v=031';
+import {artMaterial} from './library.js?v=032';
 export function floorHeight(x,z){return .10*Math.sin(x*.8+z*.45)+.06*Math.cos(z*.85-x*.4);}
 export function waterlight(mat,clock,power=.38){mat.onBeforeCompile=s=>{s.uniforms.uTime=clock;s.uniforms.uPower={value:power};s.vertexShader=s.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 wP;').replace('#include <project_vertex>',`#include <project_vertex>
 vec4 wp=vec4(transformed,1.);

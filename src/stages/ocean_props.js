@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { toon } from '../toon.js';
 import { blobGeometry } from '../props.js';
-import { cartoonEye } from './sea_props.js';
+import { cartoonEye } from './sea_props.js?v=032';
 
 // Stylised props for the ocean adventure: terraced reef islands, boat, whale, manta, dolphin, polar bears, icebergs.
 
@@ -188,7 +188,7 @@ export function makePolarBear(scale = 1) {
   const ears = [-1, 1].map((s) => { const e = new THREE.Mesh(new THREE.SphereGeometry(0.04, 10, 8), fur); e.position.set(s * 0.09, 0.1, 0.0); return e; });
   const eyes = [-1, 1].map((s) => { const e = cartoonEye(0.026); e.position.set(s * 0.05, 0.03, -0.11); e.rotation.y = Math.PI - s * 0.3; return e; }); // look forward (−z)
   head.add(skull, snout, nose, ...ears, ...eyes);
-  const legs = [[-0.12, -0.17], [0.12, -0.17], [-0.12, 0.17], [0.12, 0.17]].map(([x, z]) => { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.06, 0.16, 10), fur); l.position.set(x, 0.08, z); return l; });
+  const legs = [[-0.12, -0.17], [0.12, -0.17], [-0.12, 0.17], [0.12, 0.17]].map(([x, z]) => { const l = new THREE.Group();const limb=new THREE.Mesh(new THREE.CapsuleGeometry(.052,.075,6,12),fur);limb.position.y=.095;const paw=new THREE.Mesh(new THREE.SphereGeometry(.059,16,12),fur);paw.scale.set(.95,.58,1.22);paw.position.set(0,.027,-.018);l.add(limb,paw);l.position.set(x,0,z);return l; });
   g.add(body, head, ...legs);
   g.scale.setScalar(scale);
   g.userData.head = head;

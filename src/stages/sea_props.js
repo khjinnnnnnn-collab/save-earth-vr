@@ -27,9 +27,7 @@ export function cartoonEye(r = 0.05) {
 
 function flipper(color, len) {
   const pivot = new THREE.Group();
-  const m = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 10), std(color));
-  m.scale.set(len, 0.03, len * 0.45);
-  m.position.x = len * 0.8;
+  const geo=new THREE.SphereGeometry(1,24,14),p=geo.attributes.position;for(let i=0;i<p.count;i++){const x=p.getX(i),z=p.getZ(i),t=(x+1)*.5;p.setXYZ(i,x,p.getY(i)*(.8+.2*(1-t))-.16*t*t,z*(1-.42*t)+.32*t*t);}geo.computeVertexNormals();const m=new THREE.Mesh(geo,std(color,{roughness:.58}));m.scale.set(len,.036,len*.54);m.position.x=len*.72;
   pivot.add(m);
   return pivot;
 }
@@ -48,11 +46,11 @@ export function makeTurtle() {
   shell.scale.set(1, 0.55, 1.2);
   const belly = new THREE.Mesh(new THREE.CircleGeometry(0.31, 28), std(0xf3e2a0, { side: THREE.DoubleSide }));
   belly.rotation.x = Math.PI / 2; belly.scale.set(1, 1.2, 1);
-  const skin = 0x9ad37a;
+  const skin = 0x779c65;
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.13, 20, 14), std(skin));
   head.position.set(0, 0.04, 0.46);
-  const eyes = [-1, 1].map((s) => { const e = cartoonEye(0.04); e.position.set(s * 0.06, 0.08, 0.55); e.rotation.y = s * 0.25; return e; });
-  const smile = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.008, 6, 16, Math.PI), std(0x2a3a20));
+  const eyes = [-1, 1].map((s) => { const e = cartoonEye(0.033); e.scale.set(.91,1.04,.83); e.position.set(s * 0.073, 0.082, 0.55); e.rotation.y = s * 0.25; return e; });
+  const smile = new THREE.Mesh(new THREE.TorusGeometry(0.031, 0.0045, 8, 24, Math.PI), std(0x394a36));
   smile.position.set(0, 0.0, 0.585); smile.rotation.z = Math.PI;
   const fl = [[-1, 0.18], [1, 0.18], [-1, -0.22], [1, -0.22]].map(([s, z], i) => { const f = flipper(skin, i < 2 ? 0.2 : 0.12); f.position.set(s * 0.26, 0, z); f.rotation.y = s > 0 ? 0 : Math.PI; f.rotation.z = 0; return f; });
   g.add(shell, belly, head, ...eyes, smile, ...fl);
@@ -66,7 +64,7 @@ export function makeTurtle() {
 
 export function makeSeal() {
   const g = new THREE.Group();
-  const fur = 0x9fb6c8;
+  const fur = 0x8c9da8;
   const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.5, 8, 16), std(fur, { roughness: 0.45 }));
   body.rotation.x = Math.PI / 2 - 0.35;
   const belly = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), std(0xe8f0f4));
@@ -77,14 +75,14 @@ export function makeSeal() {
   muzzle.scale.set(1.3, 0.8, 0.9); muzzle.position.set(0, 0.25, 0.46);
   const nose = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), std(0x222222, { roughness: 0.2 }));
   nose.position.set(0, 0.29, 0.53);
-  const eyes = [-1, 1].map((s) => { const e = cartoonEye(0.045); e.position.set(s * 0.075, 0.37, 0.44); e.rotation.y = s * 0.3; return e; });
+  const eyes = [-1, 1].map((s) => { const e = cartoonEye(0.038); e.scale.set(.91,1.05,.86); e.position.set(s * 0.085, 0.37, 0.44); e.rotation.y = s * 0.3; return e; });
   const whisk = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([-1, 1].flatMap((s) => [0, 1, 2].flatMap((k) => [new THREE.Vector3(s * 0.06, 0.26 - k * 0.015, 0.5), new THREE.Vector3(s * 0.2, 0.28 - k * 0.04, 0.47)]))), new THREE.LineBasicMaterial({ color: 0x333333 }));
   const fl = [-1, 1].map((s) => { const f = flipper(0x7d95a8, 0.16); f.position.set(s * 0.2, 0, 0.1); f.rotation.y = s > 0 ? -0.6 : Math.PI + 0.6; return f; });
-  const tail = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), std(0x7d95a8)); tail.scale.set(0.16, 0.03, 0.1); tail.position.set(0, -0.3, -0.3);
+  const tail = new THREE.Group();for(const sign of [-1,1]){const fin=new THREE.Mesh(new THREE.SphereGeometry(1,20,12),std(0x758995));fin.scale.set(.095,.033,.18);fin.rotation.y=sign*.48;fin.position.set(sign*.066,0,-.058);tail.add(fin);}tail.position.set(0,-.23,-.40);
   g.add(body, belly, head, muzzle, nose, ...eyes, whisk, ...fl, tail);
   g.userData.update = (t, mood = 0) => {
     fl.forEach((f, i) => (f.rotation.z = Math.sin(t * (2 + mood * 5) + i * Math.PI) * 0.4));
-    head.rotation.z = Math.sin(t * 1.2) * 0.08 * (1 + mood * 2);
+    head.rotation.z = Math.sin(t * 1.2) * 0.055 * (1 + mood * 2);tail.rotation.x=Math.sin(t*1.7)*.16;
   };
   return g;
 }
