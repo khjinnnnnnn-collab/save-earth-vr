@@ -1,16 +1,11 @@
 import { LINES } from './lines.js';
 
-/** Synthesised sound effects + narration (pre-generated TTS mp3, falling back to the browser voice). */
+/** Synthesised sound effects + on-screen narration (subtitles only, no voice). */
 export class AudioSys {
-  constructor(ctx) { this.ctx = ctx; this.ac = null; this.manifest = {}; this.current = null; this.voice = null; }
+  constructor(ctx) { this.ctx = ctx; this.ac = null; this.current = null; }
 
   async init() {
     try { this.ac = this.ac || new AudioContext(); this.ac.resume(); } catch { /* no audio */ }
-    try { this.manifest = await (await fetch('assets/voice/manifest.json', { cache: 'no-cache' })).json(); } catch { this.manifest = {}; }
-    if ('speechSynthesis' in window) {
-      const pick = () => { this.voice = speechSynthesis.getVoices().find((v) => v.lang?.startsWith('ko')) || null; };
-      pick(); speechSynthesis.onvoiceschanged = pick;
-    }
   }
 
   tone(freq, dur, { type = 'sine', vol = 0.25, slide = 0, delay = 0 } = {}) {
@@ -54,8 +49,6 @@ export class AudioSys {
   stop() {
     for (const e of this.queue || []) e.resolve(false);
     this.queue = [];
-    if (this.current?.audio) this.current.audio.pause();
-    if ('speechSynthesis' in window) speechSynthesis.cancel();
     const cur = this.current; this.current = null;
     cur?.finish?.(true);
     clearTimeout(this.subTimer);
@@ -113,7 +106,7 @@ export class AudioSys {
     // sub: false — the text is already on screen (e.g. a quiz board), so no subtitle on top of it
     this.ctx.ui.subtitle(e.sub === false ? '' : text);
     const started = performance.now();
-    // a subtitle stays at least long enough to read, even if the voice is quick or missing
+    // a subtitle stays on screen long enough to read
     const readMs = 1500 + text.length * 120;
     let done = false, settled = false, timer = null;
     const settle = (rest, aborted) => {
@@ -132,31 +125,15 @@ export class AudioSys {
       settle(aborted ? 0 : Math.max(0, readMs - (performance.now() - started)), aborted);
     };
     // the thing this line was about is already done: wrap up quickly (but never flash a line away),
-    // also when the voice already ended and only the reading time is left
     cur.cut = () => {
       if (settled) return;
       if (!done) {
         done = true;
         clearTimeout(guard);
-        cur.audio?.pause();
-        if (!cur.audio && 'speechSynthesis' in window) speechSynthesis.cancel();
       }
       settle(Math.max(0, 1000 - (performance.now() - started)), false);
     };
     const guard = setTimeout(() => cur.finish(), readMs + 9000);
-    const end = () => cur.finish();
-    if (this.manifest[e.id]) {
-      const a = new Audio(`assets/voice/${this.manifest[e.id]}`);
-      cur.audio = a;
-      a.onended = end; a.onerror = end;
-      a.play().catch(end);
-    } else if ('speechSynthesis' in window && this.voice) {
-      const u = new SpeechSynthesisUtterance(text);
-      u.voice = this.voice; u.lang = 'ko-KR'; u.rate = 1.0; u.pitch = 1.2;
-      u.onend = end; u.onerror = end;
-      speechSynthesis.speak(u);
-    } else {
-      end();
-    }
+    cur.finish();
   }
 }

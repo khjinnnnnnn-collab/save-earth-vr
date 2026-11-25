@@ -418,7 +418,6 @@ export class SkyStage {
     });
     // a new question: whatever was still being said about the previous one is wrapped up right away
     ctx.audio.drop('fixed'); ctx.audio.drop('intro'); ctx.audio.drop('quiz');
-    ctx.audio.say(Q.q, { tag: 'quiz', sub: false });
   }
 
   answer(b) {
@@ -439,7 +438,6 @@ export class SkyStage {
       if (b.item) b.item.enabled = false;
       const x0 = b.home.x;
       ctx.tween(0.4, (k) => (b.mesh.position.x = x0 + Math.sin(k * Math.PI * 6) * 0.03 * (1 - k)));
-      ctx.audio.say('sky_wrong', { hint: true, tag: 'quiz', sub: false });
     }
   }
 

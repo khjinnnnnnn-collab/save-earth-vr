@@ -18,8 +18,7 @@
 
 ## 구조
 - `src/engine.js` 렌더러·XR·트윈 / `src/input.js` 컨트롤러·마우스 / `src/grab.js` 잡기·던지기·물리
-- `src/stages/*` 스테이지별 로직 / `src/lines.js` 내레이션 대본 (TTS 생성에도 사용)
-- `tools/gen_tts.mjs` Google Cloud TTS로 `assets/voice/*.mp3` 생성
+- `src/stages/*` 스테이지별 로직 / `src/lines.js` 자막 대본
 
 ## 크레딧
 - 3D 모델·텍스처·HDRI: [Poly Haven](https://polyhaven.com) (CC0)
