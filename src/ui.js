@@ -70,6 +70,7 @@ export function createUI(ctx) {
   return {
     hint(title,vr,pc,seconds=7){current=[title,vr,pc];until=ctx.time+seconds;drawTip();tip.visible=document.getElementById('tips-enabled')?.checked!==false;},
     hideHint(){tip.visible=false;},
+    setSubtitlePlacement(where='bottom'){sub.position.y=where==='top'?.14:-.30;},
     subtitle(text) { if (!text) { sub.visible = false; return; } sub.setText(text); sub.visible = true; },
     gauge({ width = 0.9, label = '', color = '#3ccf7a' } = {}) {
       const p = textPanel({ width, height: width * 0.22, bg: null });

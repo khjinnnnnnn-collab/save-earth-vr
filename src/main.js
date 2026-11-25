@@ -2,10 +2,10 @@ import { createEngine } from './engine.js?v=032';
 import { manager, loadHDR } from './assets.js';
 import { createInput } from './input.js';
 import { GrabSystem } from './grab.js';
-import { createUI } from './ui.js';
+import { createUI } from './ui.js?v=033';
 import { FX } from './fx.js';
-import { AudioSys } from './audio.js';
-import { Ocean } from './stages/ocean.js?v=032';
+import { AudioSys } from './audio.js?v=033';
+import { Ocean } from './stages/ocean.js?v=033';
 import { loadArt } from './art/library.js?v=032';
 
 const params = new URLSearchParams(location.search);
@@ -33,12 +33,12 @@ manager.onProgress = (url, loaded, total) => {
 const preload = Promise.all([loadHDR('kloofendal_48d_partly_cloudy_puresky'),loadArt()]).then(([,art])=>{
   const count=Object.keys(art.models).length;
   $('art-status').textContent='신규 3D 모델 '+count+'개 · 로딩 완료';
-  window.__artStatus={version:'0.3.2',loaded:true,count};
+  window.__artStatus={version:'0.3.3',loaded:true,count};
   return true;
 }).catch(e=>{
   const msg=e?.message||String(e);
   console.error('Art preload failed',e);
-  window.__artStatus={version:'0.3.2',loaded:false,error:msg};
+  window.__artStatus={version:'0.3.3',loaded:false,error:msg};
   $('art-status').textContent='신규 그래픽 로딩 실패: '+msg;
   $('art-status').style.color='#ffd092';
   $('loading').hidden=true;

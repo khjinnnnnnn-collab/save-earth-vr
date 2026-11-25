@@ -1,4 +1,4 @@
-import { LINES } from './lines.js';
+import { LINES } from './lines.js?v=033';
 
 /** Synthesised sound effects + on-screen narration (subtitles only, no voice). */
 export class AudioSys {
