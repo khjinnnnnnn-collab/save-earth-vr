@@ -64,15 +64,26 @@ async function play() {
   }
 }
 
+/** Full immersive VR. Must be called straight from a button press (the browser requires it). */
+async function enterVR() {
+  const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking'] });
+  await engine.renderer.xr.setSession(session);
+  session.addEventListener('end', () => location.reload());
+  $('btn-vr-float').hidden = true;
+}
+
+let playing = false;
 async function begin(xr) {
-  await ctx.audio.init();
   if (xr) {
-    const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking'] });
-    await engine.renderer.xr.setSession(session);
-    session.addEventListener('end', () => location.reload());
+    try { await enterVR(); } catch (err) {
+      console.warn('VR start failed', err);
+      $('vr-note').textContent = 'VR 모드를 열지 못했어요. 브라우저에서 "몰입형 VR" 권한을 허용한 뒤 다시 눌러 주세요.';
+      return;
+    }
   }
+  ctx.audio.init();
   $('overlay').classList.add('hidden');
-  play();
+  if (!playing) { playing = true; play(); }
 }
 
 preload.then(async () => {
@@ -82,5 +93,10 @@ preload.then(async () => {
   if (!vrOk) { $('btn-vr').disabled = true; $('vr-note').textContent = 'VR 기기가 연결되지 않았어요. Meta Quest 브라우저에서 열면 VR로 시작할 수 있어요.'; }
   $('btn-vr').onclick = () => begin(true);
   $('btn-desktop').onclick = () => begin(false);
+  // started on the flat screen inside a headset? one tap switches to full VR without restarting
+  if (vrOk) {
+    $('btn-desktop').onclick = () => { begin(false); $('btn-vr-float').hidden = false; };
+    $('btn-vr-float').onclick = () => enterVR().catch((err) => console.warn('VR start failed', err));
+  }
   if (params.has('autostart')) begin(false);
 });
