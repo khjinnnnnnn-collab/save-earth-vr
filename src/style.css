@@ -23,3 +23,10 @@ button:disabled { opacity:.4; cursor:not-allowed; }
 #btn-vr-float[hidden] { display:none; }
 
 .tip-setting{display:block;margin:16px 0 4px;font-size:14px;color:#c9edf3}.tip-setting input{accent-color:#19b8ba}
+
+/* Art remaster entrance — visual only; preserve controller onboarding and button IDs. */
+#overlay{background:radial-gradient(ellipse at 48% -10%,#6cbcb6 0%,#187b8f 28%,#10495f 56%,#071f31 100%)}
+.card{background:linear-gradient(155deg,#153f50f2,#092b3ff5);border:1px solid #80d5d65c;border-radius:25px;padding:30px 28px;box-shadow:0 22px 70px #0015219e}
+.edition{display:inline-block;font-size:10px;letter-spacing:2.2px;color:#b3dfdf;margin-bottom:10px;font-weight:700}
+.globe{font-size:60px;animation:none;filter:drop-shadow(0 5px 12px #0005)}
+button.primary{background:linear-gradient(110deg,#87e4ce,#5cc8ce);color:#083447}button{border-color:#85ccd749}h1{letter-spacing:-1px} .sub{color:#c0d7db}

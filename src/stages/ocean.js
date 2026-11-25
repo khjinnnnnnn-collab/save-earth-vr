@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { loadHDR } from '../assets.js';
+import { loadArt, artMesh, artMaterial, swapMesh, soften, dressAnimal, dressFish } from '../art/library.js';
+import { buildReefArt } from '../art/reef_scene.js';
 import { instanced } from '../props.js';
 import { textPanel } from '../ui.js';
 import { plateCoral, pearlCoral, softBranch, vaseCoral } from './reef_art.js';
@@ -26,7 +28,7 @@ const P = {
   end: new THREE.Vector3(0, 0.7, -27),
 };
 const CORAL = [0xe49bc8, 0xf6bd91, 0xf6dc9b, 0xb49ae7, 0x52c9ba, 0xdf82ae, 0xc8b0ee, 0x70b8e1];
-const BLEACHED = 0xb6c7be;
+const BLEACHED = 0xe9e4d8;
 const HINT_AT = 12, AUTO_AT = 45;
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
@@ -40,7 +42,7 @@ export class Ocean {
   }
 
   async load() {
-    this.hdr = await loadHDR('kloofendal_48d_partly_cloudy_puresky');
+    [this.hdr,this.art] = await Promise.all([loadHDR('kloofendal_48d_partly_cloudy_puresky'),loadArt().catch(e=>{console.warn('Art pack unavailable; legacy scenery active',e);return null;})]);
     this.S = new THREE.Group(); this.U = new THREE.Group(); this.A = new THREE.Group();
     this.U.visible = false; this.A.visible = false;
     this.root.add(this.S, this.U, this.A);
@@ -55,19 +57,23 @@ export class Ocean {
     S.add(new THREE.HemisphereLight(0xdff6ff, 0x4a90b8, 1.4));
     const sun = new THREE.DirectionalLight(0xfff3dd, 2.2); sun.position.set(-4, 10, 3); S.add(sun);
     S.add(surfaceWater(this.uTime).translateY(-0.28));
-    this.boat = makeBoat(); S.add(this.boat);
+    this.boat = makeBoat(); if(this.art){soften(this.boat);swapMesh(this.art,this.boat.children[0],'boat_hull',{roughness:.37});} S.add(this.boat);
 
     // crate with the mask + air tank
-    const crate = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.85, 0.35), toon(0xd9a066)); crate.position.set(0, 0.425, -0.75);
+    const crate = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.85, 0.35), toon(0xc0a07a,{smooth:true,rimK:.05})); crate.position.set(0, 0.425, -0.75);
     const tank = new THREE.Mesh(new THREE.CapsuleGeometry(0.09, 0.4, 6, 12), toon(0xffd23f)); tank.position.set(0.38, 0.32, -0.7);
     S.add(crate, tank);
-    this.mask = toonify(makeMask()); this.mask.scale.setScalar(1.5);
+    if(this.art){const railMat=new THREE.MeshStandardMaterial({color:0x8e6843,roughness:.88});for(const y of [.12,.70]){const rail=new THREE.Mesh(new THREE.BoxGeometry(.46,.08,.36),railMat);rail.position.set(0,y,-.75);S.add(rail);}for(const x of [-.18,.18]){const rail=new THREE.Mesh(new THREE.BoxGeometry(.055,.78,.36),railMat);rail.position.set(x,.425,-.75);S.add(rail);}const top=new THREE.Mesh(new THREE.BoxGeometry(.49,.045,.40),railMat);top.position.set(0,.85,-.75);S.add(top);}
+    this.mask = this.art?soften(makeMask()):toonify(makeMask()); this.mask.scale.setScalar(1.5);
     this.mask.position.set(0, 1.0, -0.75); this.mask.rotation.x = -0.3;
     S.add(this.mask);
 
     // tropical islands, lighthouse, dolphins, gulls
     const sand = toon(0xffe3a0), green = toon(0x5ccf6a, { vertexColors: true });
-    const isl = [[-9, -16, 3.2], [12, -22, 4], [-20, -30, 5], [4, -40, 6]];
+    const isl = [[-9, -12.5, 3.7], [11.5, -19.5, 4.8], [-21, -28, 6.2], [4, -39, 6.5]];
+    if(this.art){
+      for(const [x,z,r] of isl){const m=artMesh(this.art,'tropical_islet');m.scale.set(r,r*.58,r);m.position.set(x,-.35,z);S.add(m);for(let j=0;j<4;j++){const b=artMesh(this.art,j%2?'reef_rock_b':'reef_rock');let a=j*1.55+.4;b.position.set(x+Math.cos(a)*r*.79,-.25,z+Math.sin(a)*r*.8);b.scale.set(r*.22,r*.22,r*.19);b.rotation.y=a;S.add(b);}for(let i=0;i<5;i++){const a=i*2.399;const tree=artMesh(this.art,'palm',{side:THREE.DoubleSide});tree.position.set(x+Math.cos(a)*r*.37,.35+r*.12,z+Math.sin(a)*r*.37);tree.rotation.y=a;tree.scale.setScalar(.65+(i%3)*.17);S.add(tree);}}
+    }else{
     for (const [x, z, r] of isl) {
       const s = new THREE.Mesh(new THREE.SphereGeometry(r, 24, 10, 0, Math.PI * 2, 0, Math.PI / 2), sand); s.scale.y = 0.3; s.position.set(x, -0.3, z);
       const h = new THREE.Mesh(blobGeometry(2, 0.25), green); h.scale.set(r * 0.6, r * 0.35, r * 0.6); h.position.set(x, 0.2, z);
@@ -76,8 +82,9 @@ export class Ocean {
     const palm = palmGeometries();
     instanced([{ geo: palm.trunk, mat: toon(0xb07a48) }, { geo: palm.leaves, mat: toon(0xffffff, { map: palmLeafTexture(), alphaTest: 0.5, side: THREE.DoubleSide }) }],
       [[-9.5, -15], [-8, -17], [-10.5, -17.5], [11, -21], [13, -23], [-19, -29], [-21, -31]].map(([x, z]) => ({ x, z, y: 0.4, ry: rand(0, 6), s: rand(1.0, 1.4) })), S);
-    const lh = toonify(makeLighthouse()); lh.position.set(12.5, 0.6, -22.5); S.add(lh);
-    this.dolphins = [0, 1].map((i) => { const d = makeDolphin(); d.scale.setScalar(1.4); d.userData.ph = i * 2.2; d.userData.x = i ? 3.5 : -4.5; S.add(d); return d; });
+    }
+    const lh = this.art?soften(makeLighthouse()):toonify(makeLighthouse()); lh.position.set(12.2, .8, -20.2); S.add(lh);
+    this.dolphins = [0, 1].map((i) => { const d = makeDolphin(); if(this.art)dressAnimal(this.art,d,'dolphin'); d.scale.setScalar(1.4); d.userData.ph = i * 2.2; d.userData.x = i ? 3.5 : -4.5; S.add(d); return d; });
     this.gulls = Array.from({ length: 4 }, (_, i) => {
       const g = new THREE.Group();
       const wing = new THREE.PlaneGeometry(0.4, 0.09).translate(0.2, 0, 0);
@@ -92,15 +99,17 @@ export class Ocean {
   buildUnderwater() {
     const U = this.U;
     this.dome = gradientDome(140); U.add(this.dome);
-    U.add(new THREE.HemisphereLight(0xc1edff, 0x17465f, 1.35));
-    const top = new THREE.DirectionalLight(0xe9fff6, 2.35); top.position.set(2, 10, 4); U.add(top);
+    U.add(new THREE.HemisphereLight(0xb5edff, 0x375b66, 1.40));
+    const top = new THREE.DirectionalLight(0xfff4cf, 2.35); top.position.set(-4, 13, 4); U.add(top);
+    const fill=new THREE.DirectionalLight(0x49b3e2,.5);fill.position.set(7,5,-9);U.add(fill);
 
+    if(this.art){buildReefArt(this);}else{
     // sandy floor with soft dunes, ripples and caustics
     const fg = new THREE.PlaneGeometry(110, 110, 56, 56).rotateX(-Math.PI / 2);
     const fp = fg.attributes.position;
     for (let i = 0; i < fp.count; i++) { const x = fp.getX(i), z = fp.getZ(i); fp.setY(i, Math.sin(x * 0.45) * 0.15 + Math.sin(z * 0.35 + x * 0.2) * 0.2); }
     fg.computeVertexNormals();
-    const rip = rippleTexture('#b5b9a3', '#d7ddc1'); rip.repeat.set(22, 22);
+    const rip = rippleTexture('#d8d0b7', '#e0d9c3'); rip.repeat.set(30, 30);
     const floor = new THREE.Mesh(fg, toon(0xffffff, { map: rip, caustics: true, smooth: true, rimK: 0.08 }));
     floor.position.set(0, FLOOR, -14);
     U.add(floor);
@@ -113,10 +122,10 @@ export class Ocean {
       [-8.5, -4, 3.5, 2.2, 3], [8.8, -8, 3.8, 2.5, 3], [-9.5, -14.5, 4, 2.6, 3], [9.5, -20, 4, 2.4, 3], [-8, -29, 4.5, 2.6, 3],
       [6, -34, 5, 3.0, 3], [-1.5, -39, 6, 3.2, 3], [-12, 4, 4, 2.4, 2], [11.5, 3, 4, 2.2, 2], [16, -14, 5, 3.5, 3], [-16, -20, 5, 3.4, 3],
     ];
-    const sides = [[0x287f77, 0x164c58], [0x397d86, 0x1b4b65], [0x438f78, 0x21545c], [0x527d8e, 0x294b69]];
+    const sides = [[0x4ba998, 0x23616d], [0x509a9f, 0x25576b], [0x67b7a4, 0x245e67], [0x749eaa, 0x385b71]];
     const tops = [];
     isl.forEach(([x, z, r, h, levels], i) => {
-      const { geo, tops: t } = islandGeometry({ r, h, levels, side: sides[i % sides.length], top: i % 5 === 3 ? 0x5c9587 : 0x77a59a });
+      const { geo, tops: t } = islandGeometry({ r, h, levels, side: sides[i % sides.length], top: i % 5 === 3 ? 0x71b4a3 : 0xa4c7b0 });
       const m = new THREE.Mesh(geo, this.islandMat || (this.islandMat = toon(0xffffff, { vertexColors: true, smooth: true, caustics: true, rimK: 0.08 })));
       m.position.set(x, FLOOR - 0.05, z);
       U.add(m);
@@ -127,25 +136,26 @@ export class Ocean {
     const onTop = (n) => { const out = []; for (const t of tops) { const k = Math.max(2, Math.min(22,Math.round(t.r * t.r * n))); for (let i = 0; i < k; i++) { const a = rand(0, 6.28), rr = Math.sqrt(Math.random()) * t.r; out.push({ x: t.x + Math.cos(a) * rr, y: t.y, z: t.z + Math.sin(a) * rr, ry: rand(0, 6.28), d: -(t.z + Math.sin(a) * rr) + 2 }); } } return out; };
     const onFloor = (n) => { const out = []; let g = 0; while (out.length < n && g++ < n * 30) { const x = rand(-12, 12), z = rand(-34, 6); const px = this.pathX(z); if (Math.abs(x - px) < 1.1) continue; out.push({ x, y: FLOOR + 0.02, z, ry: rand(0, 6.28), d: -z + 2 }); } return out; };
     const col = () => pick(CORAL);
-    const branch = [...onTop(0.70), ...onFloor(80)].map((p) => ({ ...p, s: rand(1.0, 2.0), c: col() }));
-    const brain = [...onTop(0.75), ...onFloor(75)].map((p) => ({ ...p, y: p.y + 0.04, s: rand(0.8, 1.6), c: col() }));
+    const branch = [...onTop(0.48), ...onFloor(55)].map((p) => ({ ...p, s: rand(1.0, 2.0), c: col() }));
+    const brain = [...onTop(0.55), ...onFloor(55)].map((p) => ({ ...p, y: p.y + 0.04, s: rand(0.8, 1.6), c: col() }));
     const tubes = [...onTop(0.30), ...onFloor(30)].map((p) => ({ ...p, s: rand(0.9, 1.6), c: col() }));
     const anem = [...onTop(0.45), ...onFloor(45)].map((p) => ({ ...p, s: rand(1.0, 1.9), c: pick([0xff5fa2, 0xa77bff, 0x3fe0c5, 0xffd84a]) }));
     const stars = onFloor(40).map((p) => ({ ...p, y: FLOOR + 0.05, s: rand(1, 1.7), c: pick([0xff7a59, 0xffd84a, 0xff5fa2]) }));
     const fans = [...onTop(0.35), ...onFloor(30)].map((p) => ({ ...p, s: rand(1.2, 2.2), c: pick([0xff4d5e, 0xa77bff, 0xffd84a]) }));
-    const plates = [...onTop(0.24), ...onFloor(25)].map(p=>({...p,s:rand(0.9,1.9),c:pick([0xc4dfc9,0xc9a8e6,0x7fc6b8,0xf4d8b5])}));
+    const plates = [...onTop(0.38), ...onFloor(35)].map(p=>({...p,s:rand(1.4,2.7),c:pick([0xc4dfc9,0xc9a8e6,0x7fc6b8,0xf4d8b5])}));
     this.healers = [
-      instanced([{geo:plateCoral(),mat:toon(0xffffff,{smooth:true,rimK:0.09}),tintable:true}],plates,U,{sick:BLEACHED,residualColor:0.38}),
-      instanced([{ geo: softBranch(), mat: toon(0xffffff, { smooth: true, rimK: 0.10 }), tintable: true }], branch, U, { sick: BLEACHED, residualColor: 0.38 }),
-      instanced([{ geo: pearlCoral(), mat: toon(0xffffff, { smooth: true, rimK: 0.10 }), tintable: true }], brain, U, { sick: BLEACHED, residualColor: 0.38 }),
-      instanced([{ geo: vaseCoral(), mat: toon(0xffffff, { smooth: true, side: THREE.DoubleSide, rimK: 0.10 }), tintable: true }], tubes, U, { sick: BLEACHED, residualColor: 0.38 }),
-      instanced([{ geo: anemoneGeometry(), mat: toon(0xffffff), tintable: true }], anem, U, { sick: BLEACHED, residualColor: 0.38 }),
-      instanced([{ geo: starfishGeometry(), mat: toon(0xffffff), tintable: true }], stars, U, { sick: BLEACHED, residualColor: 0.38 }),
-      instanced([{ geo: new THREE.PlaneGeometry(0.5, 0.5).translate(0, 0.25, 0), mat: toon(0xffffff, { map: seaFanTexture(), alphaTest: 0.4, side: THREE.DoubleSide }), tintable: true }], fans, U, { sick: BLEACHED, residualColor: 0.38 }),
+      instanced([{geo:plateCoral(),mat:toon(0xffffff,{smooth:true,rimK:0.09}),tintable:true}],plates,U,{sick:BLEACHED}),
+      instanced([{ geo: softBranch(), mat: toon(0xffffff, { smooth: true, rimK: 0.10 }), tintable: true }], branch, U, { sick: BLEACHED }),
+      instanced([{ geo: pearlCoral(), mat: toon(0xffffff, { smooth: true, rimK: 0.10 }), tintable: true }], brain, U, { sick: BLEACHED }),
+      instanced([{ geo: vaseCoral(), mat: toon(0xffffff, { smooth: true, side: THREE.DoubleSide, rimK: 0.10 }), tintable: true }], tubes, U, { sick: BLEACHED }),
+      instanced([{ geo: anemoneGeometry(), mat: toon(0xffffff), tintable: true }], anem, U, { sick: BLEACHED }),
+      instanced([{ geo: starfishGeometry(), mat: toon(0xffffff), tintable: true }], stars, U, { sick: BLEACHED }),
+      instanced([{ geo: new THREE.PlaneGeometry(0.5, 0.5).translate(0, 0.25, 0), mat: toon(0xffffff, { map: seaFanTexture(), alphaTest: 0.4, side: THREE.DoubleSide }), tintable: true }], fans, U, { sick: BLEACHED }),
     ];
     // swaying sea grass + kelp
     const kelp = onFloor(140).map((p) => ({ ...p, s: [1, rand(0.5, 1.3), 1] }));
     instanced([{ geo: new THREE.PlaneGeometry(0.26, 2.6, 1, 10).translate(0, 1.3, 0), mat: kelpMaterial(this.uTime) }], kelp, U);
+    }
     // clams on the floor
     for (let i = 0; i < 8; i++) { const c = makeClam(pick([0xff8fc8, 0xb79cff, 0x7fd8ff])); const z = rand(-30, 2); c.position.set(this.pathX(z) + (i % 2 ? 1 : -1) * rand(1.4, 2.6), FLOOR + 0.05, z); c.rotation.y = rand(0, 6); U.add(c); }
 
@@ -166,11 +176,11 @@ export class Ocean {
     const rayMat = new THREE.ShaderMaterial({
       uniforms: { uO: { value: 0.16 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false,
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-      fragmentShader: 'uniform float uO; varying vec2 vUv; void main(){ float a = pow(vUv.y, 1.6) * uO * (0.6 + 0.4 * sin(vUv.x * 18.0)); gl_FragColor = vec4(0.85, 1.0, 1.0, a); }',
+      fragmentShader: 'uniform float uO; varying vec2 vUv; void main(){ float e = exp(-pow((vUv.x-.5)*4.8,2.)); float a = e*smoothstep(0.0,.35,vUv.y)*(1.0-smoothstep(.85,1.0,vUv.y))*uO*.50; gl_FragColor = vec4(0.38, .83, .92, a); }',
     });
     this.rayMat = rayMat;
     for (let i = 0; i < 14; i++) {
-      const m = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 1.6, 9, 14, 1, true), rayMat);
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(rand(1.2,3.3),9), rayMat);
       const z = 4 - i * 2.6;
       m.position.set(this.pathX(z) + rand(-4, 4), 3, z); m.rotation.set(rand(-0.15, 0.15), 0, rand(-0.25, 0.25));
       U.add(m);
@@ -183,28 +193,28 @@ export class Ocean {
 
     // sea life
     this.schools = [
-      fishSchool(U, new THREE.Vector3(-2.2, 1.8, -2.5), { n: 24, radius: 1.4, color: 0xff9a1a }),
-      fishSchool(U, new THREE.Vector3(3.0, 2.3, -9), { n: 26, radius: 1.8, color: 0x3ab0ff, stripe: 0xffe066, speed: -0.7 }),
+      fishSchool(U, new THREE.Vector3(-2.9, 1.7, -4.0), { n: 20, radius: 1.4, color: 0xff9a1a }),
+      fishSchool(U, new THREE.Vector3(3.0, 2.3, -9), { n: 22, radius: 1.8, color: 0x3ab0ff, stripe: 0xffe066, speed: -0.7 }),
       fishSchool(U, new THREE.Vector3(-2.5, 2.6, -17), { n: 22, radius: 1.6, color: 0xff6fa8 }),
       fishSchool(U, new THREE.Vector3(2.0, 3.0, -25), { n: 24, radius: 1.7, color: 0xffd23f, stripe: 0x3a3a3a, speed: -0.6 }),
     ];
-    this.schools.forEach((s) => (s.im.material = toon(0xffffff, { vertexColors: true, rimK: 0.3 })));
+    this.schools.forEach((s,i)=>{if(this.art)dressFish(this.art,s,['fish_amber','fish_blue','fish_rose','fish_gold'][i]);else s.im.material=toon(0xffffff,{vertexColors:true,rimK:.3});});
     this.jellies = Array.from({ length: 7 }, (_, i) => {
       const j = makeJelly(pick([0xff9ad5, 0xb9a4ff, 0x8fe8ff]));
       const z = -1 - i * 4; j.position.set(this.pathX(z) + (i % 2 ? 1 : -1) * rand(1.8, 3), rand(2.0, 3.4), z); j.userData.ph = rand(0, 6);
       U.add(j); return j;
     });
-    this.whale = makeWhale(); this.whale.scale.setScalar(1.6); U.add(this.whale);
+    this.whale = makeWhale(); if(this.art)dressAnimal(this.art,this.whale,'whale'); this.whale.scale.setScalar(1.6); U.add(this.whale);
     this.whaleA = 0;
-    this.mantas = [0, 1].map((i) => { const m = makeManta(); m.scale.setScalar(1.3); m.userData.a = i * 3; U.add(m); return m; });
+    this.mantas = [0, 1].map((i) => { const m = makeManta(); if(this.art)soften(m); m.scale.setScalar(1.3); m.userData.a = i * 3; U.add(m); return m; });
 
     // rescue friends
-    this.turtle = toonify(makeTurtle()); this.turtle.position.copy(P.turtle).add(new THREE.Vector3(0, 1.0, -1.3)); U.add(this.turtle);
+    this.turtle = this.art?dressAnimal(this.art,makeTurtle(),'turtle'):toonify(makeTurtle()); this.turtle.position.copy(P.turtle).add(new THREE.Vector3(0, 1.0, -1.3)); U.add(this.turtle);
     this.plastic = seaTrash('bag'); this.plastic.scale.setScalar(1.3); this.plastic.position.copy(P.turtle).add(new THREE.Vector3(0.16, 0.97, -0.68)); U.add(this.plastic);
     this.trapped = fishSchool(U, P.fish.clone().add(new THREE.Vector3(0, 1.1, -1.4)), { n: 14, radius: 0.26, color: 0xff7a3c, height: 0.12, speed: 0.4 });
-    this.trapped.im.material = toon(0xffffff, { vertexColors: true });
+    if(this.art)dressFish(this.art,this.trapped,'fish_amber');else this.trapped.im.material=toon(0xffffff,{vertexColors:true});
     this.net = this.makeNet(); this.net.position.copy(P.fish).add(new THREE.Vector3(0, 1.1, -0.9)); U.add(this.net);
-    this.seal = toonify(makeSeal()); this.seal.position.copy(P.seal).add(new THREE.Vector3(0, 0.85, -1.4)); U.add(this.seal);
+    this.seal = this.art?dressAnimal(this.art,makeSeal(),'seal'):toonify(makeSeal()); this.seal.position.copy(P.seal).add(new THREE.Vector3(0, 0.85, -1.4)); U.add(this.seal);
     this.ring = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.024, 8, 28), new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, roughness: 0.2 }));
     this.ring.rotation.x = Math.PI / 2 - 0.4; this.ring.position.copy(this.seal.position).add(new THREE.Vector3(0, 0.2, 0.28)); U.add(this.ring);
 
@@ -255,20 +265,20 @@ export class Ocean {
     A.add(new THREE.HemisphereLight(0xf0fbff, 0x7fb8d8, 1.5));
     const sun = new THREE.DirectionalLight(0xfff6e8, 2.0); sun.position.set(5, 8, 2); A.add(sun);
     A.add(surfaceWater(this.uTime, { shallow: 0x4fc3dc, deep: 0x1f6fb0 }).translateY(-0.28));
-    const boat = makeBoat(); A.add(boat);
+    const boat = makeBoat();if(this.art){soften(boat);swapMesh(this.art,boat.children[0],'boat_hull',{roughness:.37});} A.add(boat);
     // icebergs all around (the front stays open towards the bear)
     const bergs = [];
     for (let i = 0; i < 26; i++) { const a = rand(0, Math.PI * 2), r = rand(9, 40); const x = Math.sin(a) * r, z = -Math.cos(a) * r; if (Math.abs(x) < 4 && z < 0 && z > -14) continue; bergs.push({ x, z, y: -0.6, ry: rand(0, 6), s: [rand(0.8, 2.2), rand(0.6, 2.2), rand(0.8, 2.2)] }); }
-    instanced([{ geo: icebergGeometry(3, 2), mat: toon(0xffffff, { vertexColors: true, flat: true, rim: 0xe8fbff, rimK: 0.5 }) }], bergs, A);
+    instanced([{ geo: this.art?this.art.models.iceberg.clone():icebergGeometry(3,2), mat: this.art?artMaterial({roughness:.38}):toon(0xffffff,{vertexColors:true,flat:true,rim:0xe8fbff,rimK:.5}) }],bergs,A);
     // far ice shelf
-    const shelf = new THREE.Mesh(new THREE.BoxGeometry(80, 3, 6), toon(0xf4fcff, { rim: 0xbfefff })); shelf.position.set(0, 0.8, -46); A.add(shelf);
+    if(this.art){for(let i=0;i<9;i++){const m=artMesh(this.art,'iceberg',{roughness:.45});m.position.set(-32+i*8,-.65,-40-(i%3)*3);m.scale.set(3.8,1.4+(i%3)*.35,2.3);m.rotation.y=i*.9;A.add(m);}}else{const shelf = new THREE.Mesh(new THREE.BoxGeometry(80,3,6),toon(0xf4fcff,{rim:0xbfefff}));shelf.position.set(0,.8,-46);A.add(shelf);}
     // the cub's tiny floe
     this.floe = new THREE.Mesh(floeGeometry(1), toon(0xffffff, { vertexColors: true, flat: true, rim: 0xdff8ff, rimK: 0.6 }));
-    this.floe.position.set(0, -0.2, -3.4); this.floeR = 0.5; this.floe.scale.set(0.5, 1, 0.5); A.add(this.floe);
-    this.cub = makePolarBear(1.0); this.cub.position.set(0, -0.09, -3.4); this.cub.rotation.y = Math.PI; A.add(this.cub); // face the player
-    this.mom = makePolarBear(1.7); this.mom.position.set(-7, -0.45, -9); A.add(this.mom);
+    if(this.art)swapMesh(this.art,this.floe,'ice_floe',{roughness:.45});this.floe.position.set(0, -0.2, -3.4); this.floeR = 0.5; this.floe.scale.set(0.5, 1, 0.5); A.add(this.floe);
+    this.cub = makePolarBear(1.0);if(this.art)dressAnimal(this.art,this.cub,'bear'); this.cub.position.set(0, -0.09, -3.4); this.cub.rotation.y = Math.PI; A.add(this.cub); // face the player
+    this.mom = makePolarBear(1.7);if(this.art)dressAnimal(this.art,this.mom,'bear'); this.mom.position.set(-7, -0.45, -9); A.add(this.mom);
     // ice chunks drifting near the boat
-    this.chunks = [[-1.1, -1.5], [1.15, -1.9], [-0.7, -2.5]].map(([x, z]) => { const c = iceChunk(); c.position.set(x, 0.65, z); c.userData.home = c.position.clone(); A.add(c); return c; });
+    this.chunks = [[-1.1, -1.5], [1.15, -1.9], [-0.7, -2.5]].map(([x, z]) => { const c = iceChunk();if(this.art)swapMesh(this.art,c,'ice_floe',{roughness:.37}); c.position.set(x, 0.65, z); c.userData.home = c.position.clone(); A.add(c); return c; });
     // snow
     const n = 500, sp = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) sp.set([rand(-8, 8), rand(-0.3, 7), rand(-12, 4)], i * 3);
@@ -397,9 +407,9 @@ export class Ocean {
   setClean(k) {
     const u = this.dome.userData.u;
     const lerp3 = (a, b) => new THREE.Color(a).lerp(new THREE.Color(b), k);
-    u.uTop.value.copy(lerp3(0xa1c9c2, 0x85edee)); u.uMid.value.copy(lerp3(0x447f82, 0x159cae)); u.uBot.value.copy(lerp3(0x234c58, 0x155e80));
+    u.uTop.value.copy(lerp3(0x87cdd2, 0x81e0e9)); u.uMid.value.copy(lerp3(0x2e7487, 0x128aa7)); u.uBot.value.copy(lerp3(0x183e55, 0x0c526b));
     if (this.U.visible && this.ctx.scene.fog?.isFogExp2) { this.ctx.scene.fog.color.copy(lerp3(0x578b8a, 0x249eb0)); this.ctx.scene.fog.density = 0.066 - 0.026 * k; }
-    this.rayMat.uniforms.uO.value = 0.06 + 0.09 * k;
+    this.rayMat.uniforms.uO.value = 0.09 + 0.12 * k;
   }
 
   heal(r) { this.healers.forEach((h) => h.heal(r)); }
@@ -549,7 +559,7 @@ export class Ocean {
     this.ctx.tween(1.0, (k) => (obj.rotation.z = r0 + Math.sin(k*Math.PI*2)*.24));
   }
 
-  placeBridge(chunk,to,n){const {ctx}=this;chunk.userData.flying=true;this.root.attach(chunk);const from=chunk.position.clone();const q=chunk.quaternion.clone();ctx.audio.sfx('whoosh');this.progress(1);ctx.tween(.6,k=>{chunk.position.lerpVectors(from,to,k);chunk.quaternion.copy(q).slerp(new THREE.Quaternion(),k);}).then(()=>{chunk.visible=false;const slab=new THREE.Mesh(floeGeometry(.43),toon(0xffffff,{vertexColors:true,smooth:true,rimK:.15}));slab.position.copy(to);slab.position.y=-.2;this.A.add(slab);ctx.fx.burst(to,0xdff8ff,{n:20,speed:.8});ctx.audio.sfx('good');});}
+  placeBridge(chunk,to,n){const {ctx}=this;chunk.userData.flying=true;this.root.attach(chunk);const from=chunk.position.clone();const q=chunk.quaternion.clone();ctx.audio.sfx('whoosh');this.progress(1);ctx.tween(.6,k=>{chunk.position.lerpVectors(from,to,k);chunk.quaternion.copy(q).slerp(new THREE.Quaternion(),k);}).then(()=>{chunk.visible=false;const slab=new THREE.Mesh(floeGeometry(.43),toon(0xffffff,{vertexColors:true,smooth:true,rimK:.15}));if(this.art)swapMesh(this.art,slab,'ice_floe',{roughness:.42});slab.position.copy(to);slab.position.y=-.2;this.A.add(slab);ctx.fx.burst(to,0xdff8ff,{n:20,speed:.8});ctx.audio.sfx('good');});}
 
   async momReturns() {
     const { ctx } = this;
@@ -579,6 +589,7 @@ export class Ocean {
       for (const g of this.gulls) { const u = g.userData; u.a += dt * 0.35; g.position.set(Math.cos(u.a) * u.r, u.h, -8 + Math.sin(u.a) * u.r); g.rotation.y = -u.a; const f = Math.sin(t * 6 + u.a) * 0.5; u.L.rotation.z = f; u.R.rotation.z = -f; }
     }
     if (this.U.visible) {
+      this.updateReefLOD?.();
       this.schools.forEach((s) => s.update(dt, t));
       this.trapped.update(dt, t);
       if (this.fishFree) this.trapped.center.y += dt * 0.08;
@@ -626,7 +637,7 @@ export class Ocean {
     this.offs.forEach((f) => f());
     for (const s of this.glows.values()) {s.removeFromParent();s.material.dispose();}
     const geometries=new Set(), materials=new Set(), textures=new Set();
-    const record=o=>{if(o.geometry)geometries.add(o.geometry);for(const m of (Array.isArray(o.material)?o.material:[o.material]))if(m){materials.add(m);if(m.map?.isCanvasTexture&&m.map!==glowTexture()&&m.map!==this.ctx.fx.tex)textures.add(m.map);}};
+    const record=o=>{if(o.geometry)geometries.add(o.geometry);for(const m of (Array.isArray(o.material)?o.material:[o.material]))if(m){materials.add(m);if(m.map&&m.map!==glowTexture()&&m.map!==this.ctx.fx.tex&&(m.map.isCanvasTexture||m.normalMap))textures.add(m.map);if(m.normalMap)textures.add(m.normalMap);}};
     for(const r of [this.root,this.bag,this.gauge])r.traverse(record);
     this.bag.removeFromParent(); this.gauge.removeFromParent();
     geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());

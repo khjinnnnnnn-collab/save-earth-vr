@@ -9,10 +9,10 @@ export const ease = {
 
 export function createEngine(container) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.toneMapping = THREE.NeutralToneMapping; // keeps the cartoon colours bright
-  renderer.toneMappingExposure = 1.0;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping; // consistent filmic tonality across the art pack
+  renderer.toneMappingExposure = 1.12;
   renderer.shadowMap.enabled = false;
   renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.xr.enabled = true;

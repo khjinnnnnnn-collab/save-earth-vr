@@ -26,35 +26,30 @@ export function islandGeometry({ r = 2, h = 1.2, levels = 2, seed = Math.random(
   const sTop = new THREE.Color(side[0]), sBot = new THREE.Color(side[1]), tC = new THREE.Color(top), tC2 = new THREE.Color(top).offsetHSL(0.02, 0.05, -0.08);
   let y = 0, ox = 0, oz = 0, rr = r, hh = h;
   for (let L = 0; L < levels; L++) {
-    // Rounded, organically layered reef ledge instead of a hard cylindrical cliff.
-    const profile = [[0,-.51],[.55,-.51],[.88,-.48],[1.02,-.37],[1.08,-.15],[1.04,.10],[.96,.32],[.84,.46],[.65,.50],[.33,.52],[0,.52]].map(([x,y])=>new THREE.Vector2(x*rr,y*hh));
-    const g = new THREE.LatheGeometry(profile, 40);
+    const g = new THREE.CylinderGeometry(rr, rr * 1.12, hh, 18, 3);
     const p = g.attributes.position;
     for (let i = 0; i < p.count; i++) {
       const x = p.getX(i), z = p.getZ(i), a = Math.atan2(z, x);
       const f = 1 + 0.13 * Math.sin(3 * a + seed + L) + 0.07 * Math.sin(7 * a + seed * 2) + 0.04 * Math.sin(11 * a + L * 3);
       const yy = p.getY(i);
-      const wob = 1 + 0.085 * Math.sin(yy * 4 + a * 2 + seed);
-      p.setX(i, x * f * wob); p.setZ(i, z * f * wob); p.setY(i, yy + 0.055 * hh * Math.sin(a*3 + seed) * Math.min(1,Math.hypot(x,z)/rr));
+      const wob = 1 + 0.05 * Math.sin(yy * 4 + a * 2 + seed);
+      p.setX(i, x * f * wob); p.setZ(i, z * f * wob);
     }
-    g.computeVertexNormals();
     paint(g, (c, x, yy, z, ny) => {
-      const band=.5+.5*Math.sin(yy*12 + Math.sin(x*2+z*3)*1.4);
-      const grain=.5+.5*Math.sin(x*12+z*13+seed)*Math.cos(yy*18-z*7);
-      const cap=THREE.MathUtils.smoothstep(ny,.20,.90);
-      c.copy(sBot).lerp(sTop,THREE.MathUtils.clamp((yy+hh/2)/hh,0,1)*.62+.12+band*.12);
-      c.lerp(tC.clone().lerp(tC2,grain*.65),cap).multiplyScalar(.90+.13*grain);
+      if (ny > 0.9) c.copy(tC).lerp(tC2, 0.5 + 0.5 * Math.sin(x * 3 + z * 2 + seed));
+      else if (ny < -0.9) c.copy(sBot);
+      else c.copy(sBot).lerp(sTop, THREE.MathUtils.clamp((yy + hh / 2) / hh, 0, 1) * 0.9 + 0.1);
     });
     g.translate(ox, y + hh / 2, oz);
     parts.push(clean(g));
-    tops.push({ x: ox, y: y + hh * 1.01, z: oz, r: rr * 0.60 });
+    tops.push({ x: ox, y: y + hh, z: oz, r: rr * 0.85 });
     y += hh * 0.92;
     const a = seed * 3 + L * 2;
     ox += Math.cos(a) * rr * 0.25; oz += Math.sin(a) * rr * 0.25;
     rr *= rand(0.5, 0.68); hh *= rand(0.7, 1.0);
   }
   const geo = mergeGeometries(parts);
-  // Preserve the smooth normals computed before conversion to non-indexed geometry.
+  geo.computeVertexNormals();
   return { geo, tops };
 }
 
@@ -63,15 +58,8 @@ export function rippleTexture(base = '#f6dca2', line = '#fff0c8') {
   const c = document.createElement('canvas'); c.width = c.height = 256;
   const g = c.getContext('2d');
   g.fillStyle = base; g.fillRect(0, 0, 256, 256);
-  const image=g.getImageData(0,0,256,256), d=image.data;
-  for(let y=0;y<256;y++) for(let x=0;x<256;x++){
-    const a=x/256*Math.PI*2,b=y/256*Math.PI*2;
-    const wave=Math.sin(b*9+Math.sin(a*3)*1.15+Math.sin(a*5+b*2)*.40);
-    const fine=Math.sin(a*61+b*47)*Math.cos(a*71-b*43);
-    const noise=(Math.random()-.5)*12;
-    const v=wave*7+fine*3+noise;
-    const i=(y*256+x)*4; for(let k=0;k<3;k++)d[i+k]=Math.max(0,Math.min(255,d[i+k]+v));
-  }g.putImageData(image,0,0);
+  g.strokeStyle = line; g.lineWidth = 5; g.lineCap = 'round';
+  for (let y = 0; y < 256; y += 22) { g.beginPath(); for (let x = 0; x <= 256; x += 8) g.lineTo(x, y + Math.sin(x / 256 * Math.PI * 4 + y) * 6); g.stroke(); }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4;
   return t;
 }
@@ -88,7 +76,7 @@ export function makeBoat() {
   hull.position.y = 0.02;
   const deckGeo = new THREE.ShapeGeometry(outline).rotateX(Math.PI / 2); // same orientation as the hull (bow at −z)
   deckGeo.scale(0.93, 1, 0.93);
-  const deck = new THREE.Mesh(deckGeo, toon(0xd9a066, { side: THREE.DoubleSide }));
+  const cv=document.createElement('canvas');cv.width=cv.height=256;const dx=cv.getContext('2d');dx.fillStyle='#b88b58';dx.fillRect(0,0,256,256);for(let k=0;k<8;k++){dx.fillStyle=['#b18a5d','#c09a67','#ae8053','#c6a173'][k%4];dx.fillRect(k*32+1,0,30,256);dx.strokeStyle='rgba(89,54,28,.29)';dx.lineWidth=1;for(let j=0;j<5;j++){dx.beginPath();dx.moveTo(k*32+4+j*5,0);for(let y=0;y<=256;y+=12)dx.lineTo(k*32+4+j*5+Math.sin(y*.07+j)*1.6,y);dx.stroke();}}const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.repeat.set(.65,.48);const deck = new THREE.Mesh(deckGeo,new THREE.MeshStandardMaterial({map:tex,roughness:.85,side:THREE.DoubleSide}));
   deck.position.y = 0.03;
   // planks
   const lines = [];
@@ -112,7 +100,7 @@ export function makeBoat() {
 }
 
 /** Stylised surface water (seen from above). */
-export function surfaceWater(uTime, { shallow = 0x48e0e0, deep = 0x1a78c8, size = 200 } = {}) {
+export function surfaceWater(uTime, { shallow = 0x269aa2, deep = 0x164b80, size = 200 } = {}) {
   const m = new THREE.ShaderMaterial({
     uniforms: { uTime, uS: { value: new THREE.Color(shallow) }, uD: { value: new THREE.Color(deep) } },
     vertexShader: `uniform float uTime; varying vec3 vW;
@@ -121,11 +109,16 @@ export function surfaceWater(uTime, { shallow = 0x48e0e0, deep = 0x1a78c8, size 
         vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
     fragmentShader: `uniform float uTime; uniform vec3 uS; uniform vec3 uD; varying vec3 vW;
       void main(){
-        float d = smoothstep(2.0, 40.0, length(vW.xz));
-        vec3 col = mix(uS, uD, d);
-        float w = sin(vW.x*2.1 + uTime*1.4 + sin(vW.z*1.3)) * sin(vW.z*1.7 - uTime*1.1 + sin(vW.x*0.9));
-        col = mix(col, vec3(1.0), smoothstep(0.82, 0.97, w) * (0.75 - d * 0.5));
-        gl_FragColor = vec4(col, 1.0);
+        vec2 p=vW.xz;float t=uTime;
+        float a=sin(p.x*1.85+p.y*.74+t*1.1),b=sin(p.x*.73-p.y*2.3+t*.75),c=sin(p.x*4.2+p.y*3.1-t*1.5);
+        vec3 n=normalize(vec3(-.10*a-.05*b-.025*c,1.0,-.06*a+.12*b-.032*c));
+        vec3 v=normalize(cameraPosition-vW),sun=normalize(vec3(-.4,.85,.2));
+        float fres=pow(1.-max(dot(n,v),0.),4.5),dist=smoothstep(1.,48.,length(p));
+        vec3 col=mix(uS,uD,.2+.8*dist);col*=.88+.12*a+.07*b;
+        col=mix(col,vec3(.37,.63,.75),fres*.61);
+        float spec=pow(max(dot(reflect(-sun,n),v),0.),72.);float spark=pow(max(dot(reflect(-sun,n),v),0.),165.);
+        col+=vec3(1.,.90,.71)*spec*.56+vec3(.86,.97,1.)*spark*.35;
+        gl_FragColor=vec4(col,1.);
         #include <colorspace_fragment>
       }`,
   });

@@ -6,6 +6,7 @@ import { createUI } from './ui.js';
 import { FX } from './fx.js';
 import { AudioSys } from './audio.js';
 import { Ocean } from './stages/ocean.js';
+import { loadArt } from './art/library.js';
 
 const params = new URLSearchParams(location.search);
 const engine = createEngine(document.body);
@@ -29,7 +30,7 @@ manager.onProgress = (url, loaded, total) => {
   $('bar').style.width = p + '%';
   $('pct').textContent = `불러오는 중… ${p}%`;
 };
-const preload = loadHDR('kloofendal_48d_partly_cloudy_puresky');
+const preload = Promise.all([loadHDR('kloofendal_48d_partly_cloudy_puresky'),loadArt().catch(e=>console.warn('Art preload failed, will retry on start',e))]);
 
 async function play() {
   const start = params.get('stage');
