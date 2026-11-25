@@ -62,7 +62,14 @@ export function createUI(ctx) {
   sub.renderOrder = 9000;
   sub.visible = false;
   ctx.camera.add(sub);
+  const tip=textPanel({width:.77,height:.19,res:1024,size:45,bg:'rgba(8,43,63,.88)',border:'rgba(119,231,237,.85)'});
+  tip.position.set(0,.36,-1.22);tip.material.depthTest=false;tip.renderOrder=9001;tip.visible=false;ctx.camera.add(tip);
+  let until=0,current=null,wasXR=false;
+  const drawTip=()=>{wasXR=ctx.renderer.xr.isPresenting;tip.setText('조작 안내 · '+current[0]+'\n'+current[wasXR?1:2]);};
+  ctx.onUpdate(()=>{if(tip.visible&&ctx.time>=until)tip.visible=false;if(tip.visible&&wasXR!==ctx.renderer.xr.isPresenting)drawTip();});
   return {
+    hint(title,vr,pc,seconds=7){current=[title,vr,pc];until=ctx.time+seconds;drawTip();tip.visible=document.getElementById('tips-enabled')?.checked!==false;},
+    hideHint(){tip.visible=false;},
     subtitle(text) { if (!text) { sub.visible = false; return; } sub.setText(text); sub.visible = true; },
     gauge({ width = 0.9, label = '', color = '#3ccf7a' } = {}) {
       const p = textPanel({ width, height: width * 0.22, bg: null });

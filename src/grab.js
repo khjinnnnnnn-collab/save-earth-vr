@@ -176,6 +176,7 @@ export class GrabSystem {
 
   update(dt) {
     const hands = this.ctx.input.active;
+    for (const h of [...this.ctx.input.hands,this.ctx.input.desktop]) if(!hands.includes(h)&&h.held){this.release(h);if(h._btn)h._btn.select=h._btn.squeeze=false;h.pressed=false;h.hist.length=0;}
     for (const hand of hands) {
       let target = null;
       if (!hand.held) {

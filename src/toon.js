@@ -17,8 +17,9 @@ export const toonShared = { uTime: { value: 0 }, uCaustic: { value: 1 } };
 /**
  * Toon material. rim = colour of the glowing edge, caustics = moving light pattern on upward faces.
  */
-export function toon(color = 0xffffff, { vertexColors = false, rim = 0xbff8ff, rimK = 0.45, caustics = false, flat = false,  side = THREE.FrontSide, transparent = false, opacity = 1, emissive = 0x000000, emissiveIntensity = 1, map = null, alphaTest = 0, depthWrite = true } = {}) {
-  const m = new THREE.MeshToonMaterial({ color, gradientMap: gradientMap(), vertexColors, side, transparent, opacity, emissive, emissiveIntensity, map, alphaTest, depthWrite });
+export function toon(color = 0xffffff, { vertexColors = false, rim = 0xbff8ff, rimK = 0.45, caustics = false, flat = false,  side = THREE.FrontSide, transparent = false, opacity = 1, emissive = 0x000000, emissiveIntensity = 1, map = null, alphaTest = 0, depthWrite = true, smooth = false } = {}) {
+  const opts = { color, vertexColors, side, transparent, opacity, emissive, emissiveIntensity, map, alphaTest, depthWrite };
+  const m = smooth ? new THREE.MeshStandardMaterial({ ...opts, roughness: 0.82, metalness: 0 }) : new THREE.MeshToonMaterial({ ...opts, gradientMap: gradientMap() });
   void flat; // faceted look comes from non-indexed geometry
   const rimColor = new THREE.Color(rim);
   m.onBeforeCompile = (sh) => {
@@ -43,10 +44,10 @@ export function toon(color = 0xffffff, { vertexColors = false, rim = 0xbff8ff, r
         vec2 cp = vWPos.xz * 1.1;
         float c1 = sin(cp.x * 2.0 + sin(cp.y * 1.7 + uTime * 1.3) * 1.5 + uTime);
         float c2 = sin(cp.y * 2.2 + sin(cp.x * 1.9 - uTime * 1.1) * 1.5 - uTime * 0.8);
-        float cau = pow(max(0.0, 1.0 - abs(c1 * c2)), 6.0);
+        float cau = pow(max(0.0, 1.0 - min(abs(c1),abs(c2))), 10.0);
         totalEmissiveRadiance += vec3(0.55, 0.85, 0.9) * cau * 0.5 * uCaustic * smoothstep(0.3, 0.9, vUp);` : ''}`);
   };
-  m.customProgramCacheKey = () => `toon${caustics ? 1 : 0}`;
+  m.customProgramCacheKey = () => `toon${caustics ? 1 : 0}:${smooth ? 1 : 0}`;
   return m;
 }
 

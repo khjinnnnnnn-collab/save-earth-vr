@@ -21,3 +21,5 @@ button:disabled { opacity:.4; cursor:not-allowed; }
 
 #btn-vr-float { position:fixed; top:16px; right:16px; z-index:20; font-size:22px; padding:14px 20px; box-shadow:0 4px 16px #0006; }
 #btn-vr-float[hidden] { display:none; }
+
+.tip-setting{display:block;margin:16px 0 4px;font-size:14px;color:#c9edf3}.tip-setting input{accent-color:#19b8ba}

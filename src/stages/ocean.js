@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { loadHDR } from '../assets.js';
 import { instanced } from '../props.js';
 import { textPanel } from '../ui.js';
+import { plateCoral, pearlCoral, softBranch, vaseCoral } from './reef_art.js';
 import { toon, toonify, toonShared, gradientDome, glowTexture } from '../toon.js';
 import { litterCan, litterBottle, litterBag } from './land_items.js';
 import {
@@ -14,7 +15,7 @@ import {
 } from './ocean_props.js';
 
 // One continuous scuba adventure: boat → coral reef clean-up → rescue three friends → help the polar bear → celebration.
-// Every mission is "just grab it": grabbing a glowing thing finishes that step. No time limits; help arrives if a child is stuck.
+// Distinct interactions: sort, pull, cut, twist, place. No failure timer; assistance remains available.
 
 const FLOOR = -1.6;
 const P = {
@@ -24,9 +25,9 @@ const P = {
   seal: new THREE.Vector3(-0.5, 0, -22),
   end: new THREE.Vector3(0, 0.7, -27),
 };
-const CORAL = [0xff5fa2, 0xff8a3d, 0xffd84a, 0xa77bff, 0x3fe0c5, 0xff4d5e, 0xff9f80, 0x6fd0ff];
+const CORAL = [0xe49bc8, 0xf6bd91, 0xf6dc9b, 0xb49ae7, 0x52c9ba, 0xdf82ae, 0xc8b0ee, 0x70b8e1];
 const BLEACHED = 0xe9e4d8;
-const HINT_AT = 12, AUTO_AT = 30;
+const HINT_AT = 12, AUTO_AT = 45;
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -35,7 +36,7 @@ export class Ocean {
     this.ctx = ctx; this.root = new THREE.Group(); this.offs = [];
     this.uTime = toonShared.uTime;
     this.glows = new Map();
-    this.score = 0; this.total = 12;
+    this.score = 0; this.total = 10;
   }
 
   async load() {
@@ -91,16 +92,16 @@ export class Ocean {
   buildUnderwater() {
     const U = this.U;
     this.dome = gradientDome(140); U.add(this.dome);
-    U.add(new THREE.HemisphereLight(0xc8f8ff, 0x1d5fa0, 1.5));
-    const top = new THREE.DirectionalLight(0xffffff, 1.8); top.position.set(2, 10, 4); U.add(top);
+    U.add(new THREE.HemisphereLight(0xc9f7ff, 0x216b83, 1.9));
+    const top = new THREE.DirectionalLight(0xfff5e4, 2.1); top.position.set(2, 10, 4); U.add(top);
 
     // sandy floor with soft dunes, ripples and caustics
     const fg = new THREE.PlaneGeometry(110, 110, 56, 56).rotateX(-Math.PI / 2);
     const fp = fg.attributes.position;
     for (let i = 0; i < fp.count; i++) { const x = fp.getX(i), z = fp.getZ(i); fp.setY(i, Math.sin(x * 0.45) * 0.15 + Math.sin(z * 0.35 + x * 0.2) * 0.2); }
     fg.computeVertexNormals();
-    const rip = rippleTexture(); rip.repeat.set(40, 40);
-    const floor = new THREE.Mesh(fg, toon(0xffffff, { map: rip, caustics: true }));
+    const rip = rippleTexture('#d8d0b7', '#e0d9c3'); rip.repeat.set(30, 30);
+    const floor = new THREE.Mesh(fg, toon(0xffffff, { map: rip, caustics: true, smooth: true, rimK: 0.08 }));
     floor.position.set(0, FLOOR, -14);
     U.add(floor);
 
@@ -112,30 +113,32 @@ export class Ocean {
       [-8.5, -4, 3.5, 2.2, 3], [8.8, -8, 3.8, 2.5, 3], [-9.5, -14.5, 4, 2.6, 3], [9.5, -20, 4, 2.4, 3], [-8, -29, 4.5, 2.6, 3],
       [6, -34, 5, 3.0, 3], [-1.5, -39, 6, 3.2, 3], [-12, 4, 4, 2.4, 2], [11.5, 3, 4, 2.2, 2], [16, -14, 5, 3.5, 3], [-16, -20, 5, 3.4, 3],
     ];
-    const sides = [[0x62c3f2, 0x2a5aa8], [0x7aa8ff, 0x3d4fb0], [0x58d1d8, 0x22649a], [0x9a8cf0, 0x4b4aa8]];
+    const sides = [[0x4ba998, 0x23616d], [0x509a9f, 0x25576b], [0x67b7a4, 0x245e67], [0x749eaa, 0x385b71]];
     const tops = [];
     isl.forEach(([x, z, r, h, levels], i) => {
-      const { geo, tops: t } = islandGeometry({ r, h, levels, side: sides[i % sides.length], top: i % 5 === 3 ? 0x9be37a : 0xffe3a0 });
-      const m = new THREE.Mesh(geo, this.islandMat || (this.islandMat = toon(0xffffff, { vertexColors: true, flat: true, caustics: true, rimK: 0.25 })));
+      const { geo, tops: t } = islandGeometry({ r, h, levels, side: sides[i % sides.length], top: i % 5 === 3 ? 0x71b4a3 : 0xa4c7b0 });
+      const m = new THREE.Mesh(geo, this.islandMat || (this.islandMat = toon(0xffffff, { vertexColors: true, smooth: true, caustics: true, rimK: 0.08 })));
       m.position.set(x, FLOOR - 0.05, z);
       U.add(m);
       t.forEach((tp) => tops.push({ x: x + tp.x, y: FLOOR - 0.05 + tp.y, z: z + tp.z, r: tp.r }));
     });
 
     // coral gardens on island tops and around the floor (bleached until healed)
-    const onTop = (n) => { const out = []; for (const t of tops) { const k = Math.max(2, Math.round(t.r * t.r * n)); for (let i = 0; i < k; i++) { const a = rand(0, 6.28), rr = Math.sqrt(Math.random()) * t.r; out.push({ x: t.x + Math.cos(a) * rr, y: t.y, z: t.z + Math.sin(a) * rr, ry: rand(0, 6.28), d: -(t.z + Math.sin(a) * rr) + 2 }); } } return out; };
+    const onTop = (n) => { const out = []; for (const t of tops) { const k = Math.max(2, Math.min(22,Math.round(t.r * t.r * n))); for (let i = 0; i < k; i++) { const a = rand(0, 6.28), rr = Math.sqrt(Math.random()) * t.r; out.push({ x: t.x + Math.cos(a) * rr, y: t.y, z: t.z + Math.sin(a) * rr, ry: rand(0, 6.28), d: -(t.z + Math.sin(a) * rr) + 2 }); } } return out; };
     const onFloor = (n) => { const out = []; let g = 0; while (out.length < n && g++ < n * 30) { const x = rand(-12, 12), z = rand(-34, 6); const px = this.pathX(z); if (Math.abs(x - px) < 1.1) continue; out.push({ x, y: FLOOR + 0.02, z, ry: rand(0, 6.28), d: -z + 2 }); } return out; };
     const col = () => pick(CORAL);
-    const branch = [...onTop(1.1), ...onFloor(60)].map((p) => ({ ...p, s: rand(1.0, 2.0), c: col() }));
-    const brain = [...onTop(0.8), ...onFloor(40)].map((p) => ({ ...p, y: p.y + 0.04, s: [rand(0.18, 0.32), rand(0.12, 0.2), rand(0.18, 0.32)], c: col() }));
-    const tubes = [...onTop(0.5), ...onFloor(30)].map((p) => ({ ...p, s: rand(0.9, 1.6), c: col() }));
-    const anem = [...onTop(0.7), ...onFloor(50)].map((p) => ({ ...p, s: rand(1.0, 1.9), c: pick([0xff5fa2, 0xa77bff, 0x3fe0c5, 0xffd84a]) }));
+    const branch = [...onTop(0.48), ...onFloor(55)].map((p) => ({ ...p, s: rand(1.0, 2.0), c: col() }));
+    const brain = [...onTop(0.55), ...onFloor(55)].map((p) => ({ ...p, y: p.y + 0.04, s: rand(0.8, 1.6), c: col() }));
+    const tubes = [...onTop(0.30), ...onFloor(30)].map((p) => ({ ...p, s: rand(0.9, 1.6), c: col() }));
+    const anem = [...onTop(0.45), ...onFloor(45)].map((p) => ({ ...p, s: rand(1.0, 1.9), c: pick([0xff5fa2, 0xa77bff, 0x3fe0c5, 0xffd84a]) }));
     const stars = onFloor(40).map((p) => ({ ...p, y: FLOOR + 0.05, s: rand(1, 1.7), c: pick([0xff7a59, 0xffd84a, 0xff5fa2]) }));
-    const fans = [...onTop(0.6), ...onFloor(30)].map((p) => ({ ...p, s: rand(1.2, 2.2), c: pick([0xff4d5e, 0xa77bff, 0xffd84a]) }));
+    const fans = [...onTop(0.35), ...onFloor(30)].map((p) => ({ ...p, s: rand(1.2, 2.2), c: pick([0xff4d5e, 0xa77bff, 0xffd84a]) }));
+    const plates = [...onTop(0.38), ...onFloor(35)].map(p=>({...p,s:rand(1.4,2.7),c:pick([0xc4dfc9,0xc9a8e6,0x7fc6b8,0xf4d8b5])}));
     this.healers = [
-      instanced([{ geo: lowBranchCoral(), mat: toon(0xffffff), tintable: true }], branch, U, { sick: BLEACHED }),
-      instanced([{ geo: blobGeometry(1, 0.35), mat: toon(0xffffff, { vertexColors: true }), tintable: true }], brain, U, { sick: BLEACHED }),
-      instanced([{ geo: lowTubeSponge(), mat: toon(0xffffff, { side: THREE.DoubleSide }), tintable: true }], tubes, U, { sick: BLEACHED }),
+      instanced([{geo:plateCoral(),mat:toon(0xffffff,{smooth:true,rimK:0.09}),tintable:true}],plates,U,{sick:BLEACHED}),
+      instanced([{ geo: softBranch(), mat: toon(0xffffff, { smooth: true, rimK: 0.10 }), tintable: true }], branch, U, { sick: BLEACHED }),
+      instanced([{ geo: pearlCoral(), mat: toon(0xffffff, { smooth: true, rimK: 0.10 }), tintable: true }], brain, U, { sick: BLEACHED }),
+      instanced([{ geo: vaseCoral(), mat: toon(0xffffff, { smooth: true, side: THREE.DoubleSide, rimK: 0.10 }), tintable: true }], tubes, U, { sick: BLEACHED }),
       instanced([{ geo: anemoneGeometry(), mat: toon(0xffffff), tintable: true }], anem, U, { sick: BLEACHED }),
       instanced([{ geo: starfishGeometry(), mat: toon(0xffffff), tintable: true }], stars, U, { sick: BLEACHED }),
       instanced([{ geo: new THREE.PlaneGeometry(0.5, 0.5).translate(0, 0.25, 0), mat: toon(0xffffff, { map: seaFanTexture(), alphaTest: 0.4, side: THREE.DoubleSide }), tintable: true }], fans, U, { sick: BLEACHED }),
@@ -265,7 +268,7 @@ export class Ocean {
     this.cub = makePolarBear(1.0); this.cub.position.set(0, -0.09, -3.4); this.cub.rotation.y = Math.PI; A.add(this.cub); // face the player
     this.mom = makePolarBear(1.7); this.mom.position.set(-7, -0.45, -9); A.add(this.mom);
     // ice chunks drifting near the boat
-    this.chunks = [[-1.1, -1.5], [1.15, -1.9], [-0.7, -2.5]].map(([x, z]) => { const c = iceChunk(); c.position.set(x, -0.18, z); c.userData.home = c.position.clone(); A.add(c); return c; });
+    this.chunks = [[-1.1, -1.5], [1.15, -1.9], [-0.7, -2.5]].map(([x, z]) => { const c = iceChunk(); c.position.set(x, 0.65, z); c.userData.home = c.position.clone(); A.add(c); return c; });
     // snow
     const n = 500, sp = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) sp.set([rand(-8, 8), rand(-0.3, 7), rand(-12, 4)], i * 3);
@@ -295,13 +298,44 @@ export class Ocean {
     return it;
   }
 
+  guide(key) {
+    const hints={
+      mask:['마스크 잡기','중지 그립 또는 검지 트리거를 누르세요','마스크에 마우스를 대고 왼쪽 클릭'],
+      sort:['분리수거','그립을 누른 채 알맞은 통으로 옮기세요','왼쪽 버튼을 누른 채 통으로 드래그 후 놓기'],
+      wrong:['다른 통에 넣어 보세요','페트병은 파란 통, 캔은 주황 통이에요','페트병은 파란 통, 캔은 주황 통이에요'],
+      throw:['놓기 / 가볍게 던지기','통을 향해 살짝 움직이며 그립을 떼세요','통을 가리킨 상태에서 왼쪽 버튼 놓기'],
+      turtle:['비닐 당기기','그립을 누른 채 몸쪽으로 살짝 당기세요','비닐을 누른 채 화면 아래로 드래그'],
+      fish:['안전 가위 사용','중지 그립으로 잡고 매듭에 검지 트리거','가위를 누른 채 매듭을 가리키고 스페이스'],
+      seal:['고리 돌리기','그립을 누른 채 손목을 살짝 돌리세요','고리를 누른 채 화면 옆으로 드래그'],
+      ice:['얼음 배치','그립을 누른 채 빛나는 자리를 향해 놓으세요','얼음을 드래그해 표시된 자리에서 놓기']
+    }; if(hints[key]){this.guideTimes??={};if(this.ctx.time-(this.guideTimes[key]??-100)<8)return;this.guideTimes[key]=this.ctx.time;this.ctx.ui.hint(...hints[key],7);}
+  }
+  manipulation(obj,label,finish,{onHeld,onRelease,radius=.22,guide}={}){
+    const {ctx}=this, home=obj.getWorldPosition(new THREE.Vector3()), rotation=obj.getWorldQuaternion(new THREE.Quaternion());
+    const it=ctx.grab.add(obj,{radius,physics:false,priority:2});it.label=label;it.done=false;
+    it.complete=hand=>{if(it.done)return;it.done=true;it.enabled=false;this.setGlow(it,false);if(it.heldBy)ctx.grab.release(it.heldBy);this.lastAction=ctx.time;hand?.pulse(.6,80);ctx.ui.hideHint();finish(it);};
+    it.onGrab=h=>{it.start=h.pos.clone();it.startQ=h.anchor.getWorldQuaternion(new THREE.Quaternion());it.startRay=h.rayDir.clone();this.lastAction=ctx.time;if(guide)this.guide(guide);};
+    it.onHeld=dt=>{if(!it.done&&it.heldBy)onHeld?.(it,it.heldBy,dt);};
+    it.onRelease=(h,v)=>{if(it.done)return;if(onRelease?.(it,h,v))return;this.root.attach(obj);obj.position.copy(home);obj.quaternion.copy(rotation);obj.userData.home=home.clone();this.lastAction=ctx.time;if(guide && guide!=='throw')this.guide(guide);};
+    this.setGlow(it,true);return it;
+  }
+  aimAt(h,p,r=.35){const rel=p.clone().sub(h.rayOrigin),d=rel.dot(h.rayDir);return d>0&&d<7&&rel.addScaledVector(h.rayDir,-d).length()<r;}
+  dropAt(it,h,v,p,r=.36){const q=it.obj.getWorldPosition(new THREE.Vector3());if(q.distanceTo(p)<r||this.aimAt(h,p,r*.8))return true;if(!h.isDesktop&&v.length()>.4){const dir=v.clone().normalize(),rel=p.clone().sub(q),d=rel.dot(dir);return d>0&&d<1.8&&rel.addScaledVector(dir,-d).length()<r;}return false;}
+  makeBins(){this.bins=[];for(const [i,label,color] of [[0,'플라스틱',0x39b6c9],[1,'금속',0xe9aa58]]){
+    const g=new THREE.Group(),mat=toon(color,{smooth:true,rimK:.12,side:THREE.DoubleSide});
+    const body=new THREE.Mesh(new THREE.CylinderGeometry(.23,.19,.40,24,1,true),mat);body.position.y=-.20;
+    const rim=new THREE.Mesh(new THREE.TorusGeometry(.23,.025,8,32).rotateX(Math.PI/2),toon(0xe8fdff,{smooth:true}));
+    const dark=new THREE.Mesh(new THREE.CircleGeometry(.205,24),new THREE.MeshBasicMaterial({color:0x103e4c,side:THREE.DoubleSide}));dark.rotation.x=-Math.PI/2;dark.position.y=-.12;
+    const panel=textPanel({width:.45,height:.13,text:label,size:100,bg:'rgba(7,45,63,.93)',border:'rgba(255,255,255,.65)'});panel.position.set(0,-.11,.245);g.add(body,rim,dark,panel);g.position.set(i?.64:-.64,.80,-1.04);this.U.add(g);this.bins.push(g);}}
+  collect(it,bin){const {ctx}=this,obj=it.obj;this.root.attach(obj);const from=obj.position.clone(),to=bin.getWorldPosition(new THREE.Vector3()),scale=obj.scale.clone();ctx.audio.sfx('good');ctx.fx.burst(to,0x85f4d4,{n:18,speed:.7});ctx.tween(.35,k=>{obj.position.lerpVectors(from,to,k);obj.position.y-=k*.15;obj.scale.copy(scale).multiplyScalar(1-.85*k);}).then(()=>{obj.visible=false;});this.progress(1);this.heal(2+this.score*1.2);}
+
   setGlow(it, on) {
     let s = this.glows.get(it);
     if (on && !s) {
       s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
       s.renderOrder = 5; this.ctx.scene.add(s); this.glows.set(it, s);
     }
-    if (!on && s) { s.removeFromParent(); this.glows.delete(it); }
+    if (!on && s) { s.removeFromParent(); s.material.dispose(); this.glows.delete(it); }
   }
 
   updateGlows(t) {
@@ -325,14 +359,14 @@ export class Ocean {
     await ctx.until(() => {
       if (allDone()) return true;
       const idle = ctx.time - this.lastAction;
-      if (idle > HINT_AT && !hinted) { hinted = true; this.boost = true; ctx.audio.say(hint, { hint: true }); }
+      if (idle > HINT_AT && !hinted) { hinted = true; this.boost = true; ctx.audio.say(hint, { hint: true }); if(this.guideKey)this.guide(this.guideKey); }
       if (idle < 1) { this.boost = false; hinted = false; }
       return idle > AUTO_AT;
     });
     this.boost = false;
     if (!allDone()) {
       ctx.audio.say('o_help');
-      for (const it of items) if (!it.done) { it.done = true; it.enabled = false; this.setGlow(it, false); auto(it); await ctx.wait(0.4); }
+      for (const it of items) if (!it.done) { if(it.complete)it.complete();else{it.done=true;it.enabled=false;this.setGlow(it,false);auto(it);}await ctx.wait(.4); }
     }
   }
 
@@ -363,18 +397,17 @@ export class Ocean {
   setClean(k) {
     const u = this.dome.userData.u;
     const lerp3 = (a, b) => new THREE.Color(a).lerp(new THREE.Color(b), k);
-    u.uTop.value.copy(lerp3(0xa9c4b8, 0x9ff0ff)); u.uMid.value.copy(lerp3(0x4f7f7a, 0x36b0d6)); u.uBot.value.copy(lerp3(0x24404a, 0x10498c));
-    if (this.U.visible && this.ctx.scene.fog?.isFogExp2) { this.ctx.scene.fog.color.copy(lerp3(0x5d8a84, 0x3fb6d8)); this.ctx.scene.fog.density = 0.075 - 0.045 * k; }
-    this.rayMat.uniforms.uO.value = 0.08 + 0.12 * k;
+    u.uTop.value.copy(lerp3(0xa1c9c2, 0x85edee)); u.uMid.value.copy(lerp3(0x447f82, 0x159cae)); u.uBot.value.copy(lerp3(0x234c58, 0x155e80));
+    if (this.U.visible && this.ctx.scene.fog?.isFogExp2) { this.ctx.scene.fog.color.copy(lerp3(0x578b8a, 0x249eb0)); this.ctx.scene.fog.density = 0.066 - 0.026 * k; }
+    this.rayMat.uniforms.uO.value = 0.06 + 0.09 * k;
   }
 
   heal(r) { this.healers.forEach((h) => h.heal(r)); }
 
   async swimTo(p, dur = 3.2) {
     const { ctx } = this;
-    const from = ctx.rig.position.clone();
     ctx.audio.sfx('whoosh');
-    await ctx.tween(dur, (k) => { ctx.rig.position.lerpVectors(from, p, k); ctx.rig.position.y += Math.sin(k * Math.PI) * 0.35; });
+    await ctx.fade(1, 0.35); ctx.rig.position.copy(p); await ctx.fade(0, 0.55);
   }
 
   // ================================================================ run
@@ -391,7 +424,7 @@ export class Ocean {
     scene.fog = new THREE.Fog(0xcdeefa, 30, 140);
     ctx.rig.position.set(0, 0, 0);
     await ctx.fade(0, 0.8);
-    audio.say('o_start');
+    audio.say('o_start');this.guide('mask');
     let worn = false;
     this.lastAction = ctx.time;
     this.target(this.mask, '🤿 스쿠버 마스크', () => { worn = true; });
@@ -401,7 +434,7 @@ export class Ocean {
     ctx.audio.sfx('whoosh');
     await ctx.tween(0.5, (k) => this.mask.position.lerpVectors(mp, head, k));
     this.mask.visible = false;
-    audio.stop();
+    audio.stop();ctx.ui.hideHint();
     audio.say('o_dive');
     await ctx.fade(1, 0.5);
 
@@ -411,22 +444,16 @@ export class Ocean {
     scene.background = null; scene.environment = this.hdr; scene.environmentIntensity = 0.5;
     scene.fog = new THREE.FogExp2(0x5d8a84, 0.075);
     ctx.rig.position.copy(P.reef);
-    ctx.rig.add(this.bag); ctx.rig.add(this.gauge); this.gauge.set(0);
+    ctx.rig.add(this.gauge); this.gauge.set(0);
     this.setClean(0); this.heal(-10);
     for (let i = 0; i < 30; i++) ctx.fx.burst(new THREE.Vector3(rand(-1, 1), rand(0.5, 2), rand(-1.5, 0.5)), 0xffffff, { n: 3, speed: 0.6, size: 0.04, gravity: -1.5, life: 1.4 });
     await ctx.fade(0, 0.8);
     audio.say('o_reef');
-    const kinds = [() => litterBottle(), () => litterCan(), () => litterBag(), () => seaTrash('slipper'), () => seaTrash('foam'), () => seaTrash('line')];
-    const names = ['💧 페트병', '🥤 음료 캔', '🍿 과자 봉지', '🩴 슬리퍼', '⬜ 스티로폼', '🧵 낚싯줄'];
-    const spots = [[-0.7, 1.0, -0.8], [0.7, 1.1, -0.9], [-0.35, 1.55, -1.15], [0.4, 0.7, -0.75], [0.0, 1.25, -1.35], [0.95, 1.55, -1.2]];
-    const trash = kinds.map((mk, i) => {
-      const o = mk(); o.scale.multiplyScalar(1.4);
-      o.position.copy(P.reef).add(new THREE.Vector3(...spots[i])); o.rotation.set(rand(0, 3), rand(0, 3), rand(0, 3));
-      o.userData.home = o.position.clone(); this.U.add(o);
-      return this.target(o, names[i], (it) => { this.toBag(it.obj); this.progress(1); });
-    });
-    this.floating = trash;
-    await this.objective(trash, 'o_reef_hint', (it) => { this.toBag(it.obj); this.progress(1); });
+    this.guideKey='sort';this.guide('sort');this.makeBins();
+    const kinds=[()=>litterBottle(),()=>litterCan(),()=>litterBottle(),()=>litterCan()];
+    const spots=[[-.45,1.35,-.75],[.45,1.4,-.8],[-.95,1.15,-1.45],[.95,1.12,-1.45]];
+    const trash=kinds.map((mk,i)=>{const o=mk();o.scale.multiplyScalar(1.5);o.position.set(...spots[i]);o.rotation.set(.5,i,1);o.userData.home=o.position.clone();this.U.add(o);const bin=this.bins[i%2];return this.manipulation(o,i%2?'금속 · 음료 캔':'플라스틱 · 페트병',it=>this.collect(it,bin),{guide:'throw',onRelease:(it,h,v)=>{if(this.dropAt(it,h,v,bin.getWorldPosition(new THREE.Vector3()),.36)){it.complete(h);return true;}ctx.audio.sfx('pop');this.guide('wrong');return false;}});});
+    this.floating=trash;await this.objective(trash,'o_reef_hint',()=>{});this.bins.forEach(b=>b.visible=false);ctx.rig.add(this.bag);ctx.ui.hideHint();
     await ctx.wait(0.6);
     this.heal(6); ctx.audio.sfx('sparkle');
     for (let i = 0; i < 6; i++) setTimeout(() => ctx.fx.burst(new THREE.Vector3(rand(-3, 3), rand(-0.5, 1), rand(-4, 1)), pick(CORAL), { n: 26, speed: 1.4 }), i * 180);
@@ -452,8 +479,10 @@ export class Ocean {
     await audio.say('o_arctic');
     audio.say('o_ice');
     let placed = 0;
-    const chunkItems = this.chunks.map((c) => this.target(c, '🧊 얼음 조각', (it) => this.addIce(it.obj, ++placed)));
-    await this.objective(chunkItems, 'o_ice_hint', (it) => this.addIce(it.obj, ++placed));
+    this.guideKey='ice';this.guide('ice');this.mom.position.set(0,-.09,-6);this.mom.rotation.y=Math.PI;this.momFloe=new THREE.Mesh(floeGeometry(.85),toon(0xffffff,{vertexColors:true,smooth:true,rimK:.15}));this.momFloe.position.set(0,-.2,-6);this.A.add(this.momFloe);
+    const slots=[-3.95,-4.55,-5.15].map((z,i)=>{const m=new THREE.Mesh(new THREE.TorusGeometry(.29,.024,8,32).rotateX(Math.PI/2),new THREE.MeshBasicMaterial({color:0x90f6ff,transparent:true,opacity:.85,depthTest:false}));m.position.set([-.12,.12,-.10][i],-.08,z);m.renderOrder=40;this.A.add(m);return m;});
+    const chunkItems=this.chunks.map(c=>this.manipulation(c,'얼음 조각',it=>{const slot=it.slot||slots.find(s=>s.visible);slot.visible=false;this.placeBridge(it.obj,slot.position,++placed);},{guide:'ice',radius:.26,onRelease:(it,h,v)=>{const slot=slots.filter(s=>s.visible&&this.dropAt(it,h,v,s.position,.43)).sort((a,b)=>a.position.distanceTo(it.obj.getWorldPosition(new THREE.Vector3()))-b.position.distanceTo(it.obj.getWorldPosition(new THREE.Vector3())))[0];if(slot){it.slot=slot;it.complete(h);return true;}return false;}}));
+    await this.objective(chunkItems,'o_ice_hint',()=>{});ctx.ui.hideHint();
     await ctx.wait(1.4);
     await this.momReturns();
     await audio.say('o_bear_done');
@@ -491,10 +520,20 @@ export class Ocean {
     // trash that was left floating comes along (always in front of the diver)
     await this.swimTo(station);
     ctx.audio.say(line);
-    let saved = false;
-    const it = this.target(obj, label, () => { saved = true; });
-    await this.objective([it], line + '_hint', () => { saved = true; });
-    void saved;
+    this.guideKey=key;this.guide(key);
+    if(key==='fish'){
+      const tool=new THREE.Group(),mat=toon(0xffc870,{smooth:true}),blade=toon(0xb6e9ef,{smooth:true});
+      for(const sign of [-1,1]){const h=new THREE.Mesh(new THREE.TorusGeometry(.047,.014,8,18),mat);h.position.set(sign*.052,-.065,0);const b=new THREE.Mesh(new THREE.CapsuleGeometry(.016,.14,4,8),blade);b.position.set(sign*.035,.062,0);b.rotation.z=-sign*.3;tool.add(h,b);}
+      tool.position.copy(station).add(new THREE.Vector3(.42,1.18,-.62));this.U.add(tool);
+      const knots=[-.17,.17].map(x=>{const m=new THREE.Mesh(new THREE.SphereGeometry(.05,12,8),new THREE.MeshBasicMaterial({color:0xffe06b}));m.position.copy(obj.position).add(new THREE.Vector3(x,.12,.03));this.U.add(m);return m;});
+      let cuts=0;
+      const cutter=this.manipulation(tool,'안전 가위',()=>{knots.forEach(k=>k.visible=false);tool.visible=false;},{guide:'fish',onHeld:(it,h)=>{if(!h.justAction)return;const knot=knots[cuts];if(!knot)return;const pos=knot.getWorldPosition(new THREE.Vector3());if(this.aimAt(h,pos,.19)||tool.getWorldPosition(new THREE.Vector3()).distanceTo(pos)<.25){knot.visible=false;cuts++;h.pulse(.45,60);ctx.audio.sfx('good');this.lastAction=ctx.time;if(cuts===2)it.complete(h);}}});
+      await this.objective([cutter],line+'_hint',()=>{});
+    }else{
+      const it=this.manipulation(obj,label,()=>{},{guide:key,onHeld:(it,h)=>{const moved=h.pos.clone().sub(it.start),angle=h.anchor.getWorldQuaternion(new THREE.Quaternion()).angleTo(it.startQ),desktop=h.isDesktop&&h.dragDist>.15;if(key==='turtle'?(desktop||moved.dot(it.startRay)<-.13||moved.length()>.24):(desktop||angle>.42))it.complete(h);}});
+      await this.objective([it],line+'_hint',()=>{});
+    }
+    ctx.ui.hideHint();
     celebrate();
     this.toBag(obj);
     this.progress(1);
@@ -507,35 +546,18 @@ export class Ocean {
 
   spin(obj) {
     const r0 = obj.rotation.z;
-    this.ctx.tween(1.0, (k) => (obj.rotation.z = r0 + k * Math.PI * 2));
+    this.ctx.tween(1.0, (k) => (obj.rotation.z = r0 + Math.sin(k*Math.PI*2)*.24));
   }
 
-  addIce(chunk, n) {
-    const { ctx } = this;
-    chunk.userData.flying = true;
-    const from = chunk.getWorldPosition(new THREE.Vector3());
-    const r = 0.5 + n * 0.3;
-    const a = [-2.2, 0.2, 2.6][n - 1] ?? rand(0, 6);
-    const to = this.floe.position.clone().add(new THREE.Vector3(Math.cos(a) * (r - 0.15), 0.02, Math.sin(a) * (r - 0.15)));
-    ctx.audio.sfx('whoosh');
-    this.progress(1);
-    ctx.tween(0.8, (k) => { chunk.position.lerpVectors(from, to, k); chunk.position.y += Math.sin(k * Math.PI) * 0.6; }).then(() => {
-      ctx.audio.sfx('squash');
-      ctx.fx.burst(to, 0xdff8ff, { n: 30, speed: 1.2 });
-      const r0 = this.floeR; this.floeR = r;
-      ctx.tween(0.6, (k) => { const s = r0 + (r - r0) * k; this.floe.scale.set(s, 1, s); chunk.scale.setScalar(1 - k); }, (x) => 1 + 2.7 * Math.pow(x - 1, 3) + 1.7 * Math.pow(x - 1, 2)).then(() => (chunk.visible = false));
-      this.cubHop = 0.6;
-      if (n < 3) ctx.audio.say('o_ice_more', { hint: true });
-    });
-  }
+  placeBridge(chunk,to,n){const {ctx}=this;chunk.userData.flying=true;this.root.attach(chunk);const from=chunk.position.clone();const q=chunk.quaternion.clone();ctx.audio.sfx('whoosh');this.progress(1);ctx.tween(.6,k=>{chunk.position.lerpVectors(from,to,k);chunk.quaternion.copy(q).slerp(new THREE.Quaternion(),k);}).then(()=>{chunk.visible=false;const slab=new THREE.Mesh(floeGeometry(.43),toon(0xffffff,{vertexColors:true,smooth:true,rimK:.15}));slab.position.copy(to);slab.position.y=-.2;this.A.add(slab);ctx.fx.burst(to,0xdff8ff,{n:20,speed:.8});ctx.audio.sfx('good');});}
 
   async momReturns() {
     const { ctx } = this;
-    const from = this.mom.position.clone(), to = this.floe.position.clone().add(new THREE.Vector3(-0.5, 0, 0.1));
-    this.mom.lookAt(to.x, from.y, to.z); this.mom.rotation.y += Math.PI;
-    await ctx.tween(3.5, (k) => { this.mom.position.lerpVectors(from, to, k); this.mom.position.y = from.y + (to.y + 0.11 - from.y) * Math.max(0, (k - 0.75) / 0.25); });
+    const from=this.cub.position.clone(),to=this.mom.position.clone().add(new THREE.Vector3(.20,.30,.32));this.mom.position.y=-.1;
+    this.cub.lookAt(to.x,from.y,to.z);this.cub.rotation.y+=Math.PI;this.bearsCrossing=true;
+    await ctx.tween(3.5, (k) => { this.cub.position.lerpVectors(from,to,k);this.cub.position.y=-.09+Math.abs(Math.sin(k*25))*.08; });
     this.mom.rotation.y = Math.PI - 0.6; this.cub.rotation.y = Math.PI + 0.6;
-    this.bearsHappy = true;
+    this.bearsCrossing=false;this.bearsHappy = true; this.cub.rotation.y=Math.PI-.3;this.mom.rotation.y=Math.PI+.3;
     ctx.audio.sfx('clear');
     for (let i = 0; i < 5; i++) setTimeout(() => ctx.fx.burst(this.floe.position.clone().add(new THREE.Vector3(rand(-0.4, 0.4), 0.8, 0)), 0xff7aa8, { n: 14, speed: 0.8, gravity: -0.5, life: 1.2 }), i * 300);
   }
@@ -578,7 +600,7 @@ export class Ocean {
       const a = this.bubbles.geometry.attributes.position;
       for (let i = 0; i < a.count; i++) { let y = a.getY(i) + dt * (0.3 + (i % 5) * 0.08); if (y > 7) y = FLOOR; a.setY(i, y); }
       a.needsUpdate = true;
-      for (const it of this.floating || []) if (!it.done) { const h = it.obj.userData.home; it.obj.position.y = h.y + Math.sin(t * 1.3 + h.x * 3) * 0.04; it.obj.rotation.y += dt * 0.3; }
+      for (const it of this.floating || []) if (!it.done && !it.heldBy && !it.fly) { const h = it.obj.userData.home; it.obj.position.y = h.y + Math.sin(t * 1.3 + h.x * 3) * 0.04; it.obj.rotation.y += dt * 0.3; }
       if (this.friendsHappy) { this.turtle.position.y += Math.sin(t * 3) * 0.002; this.seal.rotation.z = Math.sin(t * 4) * 0.15; }
       if (this.cert) this.cert.position.y += Math.sin(t * 1.5) * 0.0006;
     }
@@ -586,27 +608,31 @@ export class Ocean {
       const s = this.snow.geometry.attributes.position;
       for (let i = 0; i < s.count; i++) { let y = s.getY(i) - dt * 0.4; if (y < -0.3) y = 7; s.setY(i, y); s.setX(i, s.getX(i) + Math.sin(t + i) * 0.002); }
       s.needsUpdate = true;
-      for (const c of this.chunks) if (!c.userData.flying) c.position.y = c.userData.home.y + Math.sin(t * 1.6 + c.userData.home.x) * 0.03;
+      for (const c of this.chunks) if (!c.userData.flying&&!c.userData.item?.heldBy&&!c.userData.item?.fly) c.position.y = c.userData.home.y + Math.sin(t * 1.6 + c.userData.home.x) * 0.03;
       this.floe.position.y = -0.2 + Math.sin(t * 1.2) * 0.015;
       // the cub shivers until its home is big again, then bounces happily
       if (this.bearsHappy) { this.cub.position.y = -0.09 + Math.abs(Math.sin(t * 5)) * 0.08; this.mom.position.y = -0.09 + Math.abs(Math.sin(t * 5 + 1)) * 0.05; }
-      else {
+      else if(!this.bearsCrossing) {
         this.cubHop = Math.max(0, (this.cubHop || 0) - dt);
         this.cub.position.y = this.floe.position.y + 0.11 + Math.abs(Math.sin(this.cubHop * 10)) * 0.08 * (this.cubHop > 0 ? 1 : 0);
         this.cub.rotation.z = (this.cubHop > 0 ? 0 : Math.sin(t * 30) * 0.02);
         this.cub.userData.head.rotation.x = this.cubHop > 0 ? 0.2 : -0.35;
       }
-      if (!this.bearsHappy) { this.mom.position.y = -0.45 + Math.sin(t * 2) * 0.03; }
+      if (!this.bearsHappy&&!this.bearsCrossing) { this.mom.position.y = (this.momFloe ? -.09 : -.45) + Math.sin(t * 2) * 0.02; }
     }
   }
 
   dispose() {
     this.offs.forEach((f) => f());
-    for (const s of this.glows.values()) s.removeFromParent();
+    for (const s of this.glows.values()) {s.removeFromParent();s.material.dispose();}
+    const geometries=new Set(), materials=new Set(), textures=new Set();
+    const record=o=>{if(o.geometry)geometries.add(o.geometry);for(const m of (Array.isArray(o.material)?o.material:[o.material]))if(m){materials.add(m);if(m.map?.isCanvasTexture&&m.map!==glowTexture()&&m.map!==this.ctx.fx.tex)textures.add(m.map);}};
+    for(const r of [this.root,this.bag,this.gauge])r.traverse(record);
     this.bag.removeFromParent(); this.gauge.removeFromParent();
-    this.ctx.input.setLaser(false);
+    geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());
+    this.ctx.ui.hideHint();this.ctx.input.setLaser(false);
     this.ctx.rig.position.set(0, 0, 0);
-    this.ctx.grab.clear();
+    this.ctx.grab.clear(); this.ctx.grab.hover.clear();
     const s = this.ctx.scene; s.fog = null; s.environment = null; s.background = null;
   }
 }

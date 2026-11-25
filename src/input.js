@@ -7,7 +7,7 @@ export class Hand {
   constructor(id) {
     this.id = id;
     this.pressed = false; this.justPressed = false; this.justReleased = false;
-    this.doubleClick = false;
+    this.doubleClick = false; this.actionPressed=false; this.justAction=false; this._actionPrev=false;
     this.held = null;
     this.pos = new THREE.Vector3();
     this.velocity = new THREE.Vector3();
@@ -81,7 +81,7 @@ export function createInput(ctx) {
   window.addEventListener('pointerup', (e) => { if (e.button === 2) dragLook = null; else mouseDown = false; });
   el.addEventListener('dblclick', () => (dbl = true));
   const keys = new Set();
-  window.addEventListener('keydown', (e) => { keys.add(e.key); if (e.key === ' ') dbl = true; });
+  window.addEventListener('keydown', (e) => { keys.add(e.key); if (e.key === ' ') { e.preventDefault(); if(!e.repeat) dbl = true; } });
   window.addEventListener('keyup', (e) => keys.delete(e.key));
   const raycaster = new THREE.Raycaster();
 
@@ -112,13 +112,14 @@ export function createInput(ctx) {
           h.pressed = mouseDown;
           if (h.pressed && !prev) h.pressNdc = ndc.clone();
           if (h.pressNdc) h.dragDist = ndc.distanceTo(h.pressNdc);
-          h.doubleClick = dbl; dbl = false;
+          h.doubleClick = dbl; h.actionPressed=keys.has(' ')||!!api.debug?.action; dbl = false;
         } else {
           h.pressed = h._btn.select || h._btn.squeeze;
-          h.doubleClick = false;
+          h.doubleClick = false; h.actionPressed=h._btn.select;
           h.rayObj.getWorldPosition(h.rayOrigin);
           h.rayDir.set(0, 0, -1).applyQuaternion(h.rayObj.getWorldQuaternion(_q));
         }
+        h.justAction=h.actionPressed&&!h._actionPrev; h._actionPrev=h.actionPressed;
         h.justPressed = h.pressed && !prev;
         h.justReleased = !h.pressed && prev;
         h.anchor.getWorldPosition(h.pos);
