@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>바다를 구하라 VR</title>
-<link rel="stylesheet" href="./src/style.css?v=03">
+<link rel="stylesheet" href="./src/style.css?v=031">
 <script type="importmap">
 { "imports": { "three": "./vendor/three/build/three.module.js", "three/addons/": "./vendor/three/addons/" } }
 </script>
@@ -13,11 +13,12 @@
 <button id="btn-vr-float" class="primary" hidden>🥽 VR로 꽉 차게 보기</button>
 <div id="overlay">
   <div class="card">
-    <span class="edition">SAVE EARTH VR · ART REMASTER 0.3</span>
+    <span class="edition">SAVE EARTH VR · ART REMASTER 0.3.1</span>
     <div class="globe">🐢</div>
     <h1>바다를 구하라!</h1>
     <p class="sub">스쿠버 다이버가 되어 쓰레기를 줍고, 바다 친구들과 북극곰을 구해 주세요</p>
     <div id="loading"><div class="bar"><i id="bar"></i></div><span id="pct">불러오는 중… 0%</span></div>
+    <p id="art-status" class="note" role="status" aria-live="polite" style="color:#bde9e6;font-size:13px">신규 3D 모델 확인 중…</p>
     <div id="buttons" hidden>
       <button id="btn-vr" class="primary">🥽 VR로 시작하기</button>
       <button id="btn-desktop">🖥️ 화면으로 체험하기</button>
@@ -26,6 +27,6 @@
     <p id="vr-note" class="note"></p>
   </div>
 </div>
-<script type="module" src="./src/main.js?v=03"></script>
+<script type="module" src="./src/main.js?v=031"></script>
 </body>
 </html>

@@ -1,12 +1,12 @@
-import { createEngine } from './engine.js';
+import { createEngine } from './engine.js?v=031';
 import { manager, loadHDR } from './assets.js';
 import { createInput } from './input.js';
 import { GrabSystem } from './grab.js';
 import { createUI } from './ui.js';
 import { FX } from './fx.js';
 import { AudioSys } from './audio.js';
-import { Ocean } from './stages/ocean.js';
-import { loadArt } from './art/library.js';
+import { Ocean } from './stages/ocean.js?v=031';
+import { loadArt } from './art/library.js?v=031';
 
 const params = new URLSearchParams(location.search);
 const engine = createEngine(document.body);
@@ -30,7 +30,21 @@ manager.onProgress = (url, loaded, total) => {
   $('bar').style.width = p + '%';
   $('pct').textContent = `불러오는 중… ${p}%`;
 };
-const preload = Promise.all([loadHDR('kloofendal_48d_partly_cloudy_puresky'),loadArt().catch(e=>console.warn('Art preload failed, will retry on start',e))]);
+const preload = Promise.all([loadHDR('kloofendal_48d_partly_cloudy_puresky'),loadArt()]).then(([,art])=>{
+  const count=Object.keys(art.models).length;
+  $('art-status').textContent='신규 3D 모델 '+count+'개 · 로딩 완료';
+  window.__artStatus={version:'0.3.1',loaded:true,count};
+  return true;
+}).catch(e=>{
+  const msg=e?.message||String(e);
+  console.error('Art preload failed',e);
+  window.__artStatus={version:'0.3.1',loaded:false,error:msg};
+  $('art-status').textContent='신규 그래픽 로딩 실패: '+msg;
+  $('art-status').style.color='#ffd092';
+  $('loading').hidden=true;
+  const retry=document.createElement('button');retry.textContent='새로고침하여 다시 시도';retry.onclick=()=>location.reload();$('loading').after(retry);
+  return false;
+});
 
 async function play() {
   const start = params.get('stage');
@@ -74,10 +88,18 @@ async function begin(xr) {
   }
   ctx.audio.init();
   $('overlay').classList.add('hidden');
-  if (!playing) { playing = true; play(); }
+  if (!playing) { playing = true; play().catch(e=>{
+    console.error('Game startup failed',e);
+    $('overlay').classList.remove('hidden');
+    $('art-status').textContent='게임 실행 오류: '+(e?.message||String(e));
+    $('art-status').style.color='#ffd092';
+    $('btn-desktop').disabled=true;$('btn-vr').disabled=true;
+    const retry=document.createElement('button');retry.textContent='다시 시작';retry.onclick=()=>location.reload();$('buttons').after(retry);
+  }); }
 }
 
-preload.then(async () => {
+preload.then(async (ready) => {
+  if (!ready) return;
   $('loading').hidden = true;
   $('buttons').hidden = false;
   const vrOk = navigator.xr && (await navigator.xr.isSessionSupported('immersive-vr').catch(() => false));

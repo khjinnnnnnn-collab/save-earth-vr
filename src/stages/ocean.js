@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { loadHDR } from '../assets.js';
-import { loadArt, artMesh, artMaterial, swapMesh, soften, dressAnimal, dressFish } from '../art/library.js';
-import { buildReefArt } from '../art/reef_scene.js';
+import { loadArt, artMesh, artMaterial, swapMesh, soften, dressAnimal, dressFish } from '../art/library.js?v=031';
+import { buildReefArt } from '../art/reef_scene.js?v=031';
 import { instanced } from '../props.js';
 import { textPanel } from '../ui.js';
 import { plateCoral, pearlCoral, softBranch, vaseCoral } from './reef_art.js';
@@ -14,7 +14,7 @@ import {
 import {
   islandGeometry, rippleTexture, makeBoat, surfaceWater, makeWhale, makeManta, makeDolphin, makePolarBear,
   icebergGeometry, floeGeometry, iceChunk, makeClam, blobGeometry, lowBranchCoral, lowTubeSponge,
-} from './ocean_props.js';
+} from './ocean_props.js?v=031';
 
 // One continuous scuba adventure: boat → coral reef clean-up → rescue three friends → help the polar bear → celebration.
 // Distinct interactions: sort, pull, cut, twist, place. No failure timer; assistance remains available.
@@ -42,7 +42,7 @@ export class Ocean {
   }
 
   async load() {
-    [this.hdr,this.art] = await Promise.all([loadHDR('kloofendal_48d_partly_cloudy_puresky'),loadArt().catch(e=>{console.warn('Art pack unavailable; legacy scenery active',e);return null;})]);
+    [this.hdr,this.art] = await Promise.all([loadHDR('kloofendal_48d_partly_cloudy_puresky'),loadArt()]);
     this.S = new THREE.Group(); this.U = new THREE.Group(); this.A = new THREE.Group();
     this.U.visible = false; this.A.visible = false;
     this.root.add(this.S, this.U, this.A);
