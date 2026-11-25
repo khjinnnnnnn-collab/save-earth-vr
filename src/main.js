@@ -1,15 +1,11 @@
 import { createEngine } from './engine.js';
-import { manager, loadModel, loadHDR } from './assets.js';
+import { manager, loadHDR } from './assets.js';
 import { createInput } from './input.js';
 import { GrabSystem } from './grab.js';
 import { createUI } from './ui.js';
 import { FX } from './fx.js';
 import { AudioSys } from './audio.js';
-import { Intro, Placeholder } from './stages/space.js';
-import { Land, LAND_MODELS } from './stages/land.js';
-import { Ending } from './stages/ending.js';
-import { Sea } from './stages/sea.js';
-import { SkyStage } from './stages/sky.js';
+import { Ocean } from './stages/ocean.js';
 
 const params = new URLSearchParams(location.search);
 const engine = createEngine(document.body);
@@ -23,14 +19,8 @@ ctx.grab = new GrabSystem(ctx);
 engine.onUpdate((dt) => { ctx.input.update(dt); ctx.grab.update(dt); ctx.fx.update(dt); });
 window.__game = ctx; // for automated tests
 
-const STAGES = {
-  intro: () => new Intro(ctx),
-  land: () => new Land(ctx),
-  sea: () => new Sea(ctx),
-  sky: () => new SkyStage(ctx),
-  ending: () => new Ending(ctx),
-};
-const ORDER = ['intro', 'land', 'sea', 'sky', 'ending'];
+const STAGES = { ocean: () => new Ocean(ctx) };
+const ORDER = ['ocean'];
 
 // ---------- loading screen ----------
 const $ = (id) => document.getElementById(id);
@@ -39,7 +29,7 @@ manager.onProgress = (url, loaded, total) => {
   $('bar').style.width = p + '%';
   $('pct').textContent = `불러오는 중… ${p}%`;
 };
-const preload = Promise.all([loadHDR('kloofendal_48d_partly_cloudy_puresky'), ...LAND_MODELS.map(loadModel)]);
+const preload = loadHDR('kloofendal_48d_partly_cloudy_puresky');
 
 async function play() {
   const start = params.get('stage');
