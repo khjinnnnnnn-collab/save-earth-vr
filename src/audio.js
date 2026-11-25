@@ -115,13 +115,15 @@ export class AudioSys {
     const started = performance.now();
     // a subtitle stays at least long enough to read, even if the voice is quick or missing
     const readMs = 1500 + text.length * 120;
-    let done = false;
+    let done = false, settled = false, timer = null;
     const settle = (rest, aborted) => {
-      setTimeout(() => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (settled) return; settled = true;
         if (this.current === cur) this.current = null;
         if (!aborted) this.subTimer = setTimeout(() => { if (!this.current) this.ctx.ui.subtitle(''); }, 700);
         e.resolve(!aborted);
-        if (!aborted) setTimeout(() => this.pump(), 250);
+        if (!aborted) setTimeout(() => this.pump(), 150);
       }, rest);
     };
     cur.finish = (aborted = false) => {
@@ -129,13 +131,17 @@ export class AudioSys {
       clearTimeout(guard);
       settle(aborted ? 0 : Math.max(0, readMs - (performance.now() - started)), aborted);
     };
-    // the thing this line was about is already done: wrap up quickly (but never flash a line away)
+    // the thing this line was about is already done: wrap up quickly (but never flash a line away),
+    // also when the voice already ended and only the reading time is left
     cur.cut = () => {
-      if (done) return; done = true;
-      clearTimeout(guard);
-      cur.audio?.pause();
-      if (!cur.audio && 'speechSynthesis' in window) speechSynthesis.cancel();
-      settle(Math.max(0, 1200 - (performance.now() - started)), false);
+      if (settled) return;
+      if (!done) {
+        done = true;
+        clearTimeout(guard);
+        cur.audio?.pause();
+        if (!cur.audio && 'speechSynthesis' in window) speechSynthesis.cancel();
+      }
+      settle(Math.max(0, 1000 - (performance.now() - started)), false);
     };
     const guard = setTimeout(() => cur.finish(), readMs + 9000);
     const end = () => cur.finish();

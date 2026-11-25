@@ -340,7 +340,7 @@ export class SkyStage {
     this.offs.push(ctx.onUpdate((dt, t) => this.tick(dt, t)));
     await ctx.fade(0, 0.8);
     await audio.say('sky_start');
-    audio.say('sky_find');
+    audio.say('sky_find', { tag: 'intro' });
     this.phase = 'fix';
     this.lastQuiz = ctx.time;
     this.fixStart = ctx.time;
@@ -416,6 +416,8 @@ export class SkyStage {
       it.onRelease = () => {};
       b.item = it;
     });
+    // a new question: whatever was still being said about the previous one is wrapped up right away
+    ctx.audio.drop('fixed'); ctx.audio.drop('intro'); ctx.audio.drop('quiz');
     ctx.audio.say(Q.q, { tag: 'quiz', sub: false });
   }
 
@@ -429,7 +431,7 @@ export class SkyStage {
       b.mesh.draw((g, w, h) => { g.fillStyle = 'rgba(40,190,100,0.95)'; g.beginPath(); g.roundRect(4, 4, w - 8, h - 8, 40); g.fill(); g.fillStyle = '#fff'; g.font = '800 50px "Noto Sans KR",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(`⭕ 정답! ${QUIZ[q.s.key].answers[0]}`, w / 2, h / 2); });
       ctx.fx.burst(b.mesh.getWorldPosition(new THREE.Vector3()), 0x7cff9a, { n: 30, speed: 1.2, size: 0.05 });
       ctx.audio.sfx('sparkle');
-      ctx.wait(1.0).then(() => { this.closeQuiz(); this.fix(q.s, true); this.lastQuiz = ctx.time; });
+      ctx.wait(1.0).then(() => { this.closeQuiz(); this.fix(q.s, true); this.lastQuiz = this.lastFix = ctx.time; });
     } else {
       q.wrong.add(b.idx);
       ctx.audio.sfx('wrong');
@@ -476,8 +478,8 @@ export class SkyStage {
     this.face.material.map = this.faces.dizzy; this.dizzyUntil = ctx.time + 2.5;
     this.progress(1);
     if (celebrate) {
-      ctx.audio.say(s.fixLine);
-      if (this.sources.some((x) => !x.fixed)) ctx.audio.say('sky_next');
+      ctx.audio.say(s.fixLine, { tag: 'fixed' });
+      if (this.sources.some((x) => !x.fixed)) ctx.audio.say('sky_next', { tag: 'fixed' });
     }
   }
 
@@ -546,7 +548,7 @@ export class SkyStage {
         s.pillar.material.opacity = 0.15 + 0.3 * w;
         s.sign.scale.setScalar(1 + 0.08 * w);
       }
-      if (this.phase === 'fix' && !s.fixed && !this.quiz) {
+      if (this.phase === 'fix' && !s.fixed && !this.quiz && !(ctx.time - (this.lastFix ?? -99) < 2.5)) {
         const pointing = ctx.input.active.some((h) => this.angleTo(h.isDesktop ? h.rayOrigin : h.pos, h.rayDir, s.target) < 10);
         s.hover = pointing ? s.hover + dt : 0;
         if (s.hover > 0.5) this.openQuiz(s);
