@@ -26,30 +26,35 @@ export function islandGeometry({ r = 2, h = 1.2, levels = 2, seed = Math.random(
   const sTop = new THREE.Color(side[0]), sBot = new THREE.Color(side[1]), tC = new THREE.Color(top), tC2 = new THREE.Color(top).offsetHSL(0.02, 0.05, -0.08);
   let y = 0, ox = 0, oz = 0, rr = r, hh = h;
   for (let L = 0; L < levels; L++) {
-    const g = new THREE.CylinderGeometry(rr, rr * 1.12, hh, 18, 3);
+    // Rounded, organically layered reef ledge instead of a hard cylindrical cliff.
+    const profile = [[0,-.51],[.55,-.51],[.88,-.48],[1.02,-.37],[1.08,-.15],[1.04,.10],[.96,.32],[.84,.46],[.65,.50],[.33,.52],[0,.52]].map(([x,y])=>new THREE.Vector2(x*rr,y*hh));
+    const g = new THREE.LatheGeometry(profile, 40);
     const p = g.attributes.position;
     for (let i = 0; i < p.count; i++) {
       const x = p.getX(i), z = p.getZ(i), a = Math.atan2(z, x);
       const f = 1 + 0.13 * Math.sin(3 * a + seed + L) + 0.07 * Math.sin(7 * a + seed * 2) + 0.04 * Math.sin(11 * a + L * 3);
       const yy = p.getY(i);
-      const wob = 1 + 0.05 * Math.sin(yy * 4 + a * 2 + seed);
-      p.setX(i, x * f * wob); p.setZ(i, z * f * wob);
+      const wob = 1 + 0.085 * Math.sin(yy * 4 + a * 2 + seed);
+      p.setX(i, x * f * wob); p.setZ(i, z * f * wob); p.setY(i, yy + 0.055 * hh * Math.sin(a*3 + seed) * Math.min(1,Math.hypot(x,z)/rr));
     }
+    g.computeVertexNormals();
     paint(g, (c, x, yy, z, ny) => {
-      if (ny > 0.9) c.copy(tC).lerp(tC2, 0.5 + 0.5 * Math.sin(x * 3 + z * 2 + seed));
-      else if (ny < -0.9) c.copy(sBot);
-      else c.copy(sBot).lerp(sTop, THREE.MathUtils.clamp((yy + hh / 2) / hh, 0, 1) * 0.9 + 0.1);
+      const band=.5+.5*Math.sin(yy*12 + Math.sin(x*2+z*3)*1.4);
+      const grain=.5+.5*Math.sin(x*12+z*13+seed)*Math.cos(yy*18-z*7);
+      const cap=THREE.MathUtils.smoothstep(ny,.20,.90);
+      c.copy(sBot).lerp(sTop,THREE.MathUtils.clamp((yy+hh/2)/hh,0,1)*.62+.12+band*.12);
+      c.lerp(tC.clone().lerp(tC2,grain*.65),cap).multiplyScalar(.90+.13*grain);
     });
     g.translate(ox, y + hh / 2, oz);
     parts.push(clean(g));
-    tops.push({ x: ox, y: y + hh, z: oz, r: rr * 0.85 });
+    tops.push({ x: ox, y: y + hh * 1.01, z: oz, r: rr * 0.60 });
     y += hh * 0.92;
     const a = seed * 3 + L * 2;
     ox += Math.cos(a) * rr * 0.25; oz += Math.sin(a) * rr * 0.25;
     rr *= rand(0.5, 0.68); hh *= rand(0.7, 1.0);
   }
   const geo = mergeGeometries(parts);
-  geo.computeVertexNormals();
+  // Preserve the smooth normals computed before conversion to non-indexed geometry.
   return { geo, tops };
 }
 
@@ -58,8 +63,15 @@ export function rippleTexture(base = '#f6dca2', line = '#fff0c8') {
   const c = document.createElement('canvas'); c.width = c.height = 256;
   const g = c.getContext('2d');
   g.fillStyle = base; g.fillRect(0, 0, 256, 256);
-  g.strokeStyle = line; g.lineWidth = 5; g.lineCap = 'round';
-  for (let y = 0; y < 256; y += 22) { g.beginPath(); for (let x = 0; x <= 256; x += 8) g.lineTo(x, y + Math.sin(x / 256 * Math.PI * 4 + y) * 6); g.stroke(); }
+  const image=g.getImageData(0,0,256,256), d=image.data;
+  for(let y=0;y<256;y++) for(let x=0;x<256;x++){
+    const a=x/256*Math.PI*2,b=y/256*Math.PI*2;
+    const wave=Math.sin(b*9+Math.sin(a*3)*1.15+Math.sin(a*5+b*2)*.40);
+    const fine=Math.sin(a*61+b*47)*Math.cos(a*71-b*43);
+    const noise=(Math.random()-.5)*12;
+    const v=wave*7+fine*3+noise;
+    const i=(y*256+x)*4; for(let k=0;k<3;k++)d[i+k]=Math.max(0,Math.min(255,d[i+k]+v));
+  }g.putImageData(image,0,0);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4;
   return t;
 }

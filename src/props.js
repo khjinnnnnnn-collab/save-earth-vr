@@ -88,7 +88,7 @@ export function treeGeometries(kind) {
 /**
  * Instanced set of multi-part props. placements: {x,y?,z,ry,s,d?}. tint(i, k) recolours polluted→healthy.
  */
-export function instanced(parts, placements, root, { shadow = false, sick: sickColor = null } = {}) {
+export function instanced(parts, placements, root, { shadow = false, sick: sickColor = null, residualColor = 0 } = {}) {
   const ims = parts.map(({ geo, mat, tintable }) => {
     const im = new THREE.InstancedMesh(geo, mat, placements.length);
     im.castShadow = shadow; im.receiveShadow = true;
@@ -113,7 +113,7 @@ export function instanced(parts, placements, root, { shadow = false, sick: sickC
         if (!im.userData.tintable) continue;
         placements.forEach((p, i) => {
           const k = THREE.MathUtils.clamp((radius - (p.d ?? Math.hypot(p.x, p.z))) / 2, 0, 1);
-          c.copy(sick).lerp(p.c !== undefined ? tgt.set(p.c) : healthy, k);
+          c.copy(sick).lerp(p.c !== undefined ? tgt.set(p.c) : healthy, residualColor + (1-residualColor)*k);
           im.setColorAt(i, c);
         });
         im.instanceColor.needsUpdate = true;

@@ -6,17 +6,17 @@ const vec = (x,y,z) => new THREE.Vector3(x,y,z);
 function combine(parts) { const gs=parts.map(g=>g.index ? g.toNonIndexed() : g); const m=mergeGeometries(gs); for(const g of new Set([...parts,...gs])) g.dispose(); return m; }
 export function plateCoral() {
   const parts=[];
-  for(let k=0;k<3;k++){
-    const r=[.27,.38,.31][k], y=.12+k*.14;
+  for(let k=0;k<2;k++){
+    const r=[.33,.24][k], y=.13+k*.17;
     const pts=[[0,-.04],[.3*r,-.04],[.72*r,-.025],[r,.015],[r*.98,.045],[r*.74,.025],[r*.35,.005],[0,.005]].map(([x,y])=>new THREE.Vector2(x,y));
-    const g=new THREE.LatheGeometry(pts,16); const p=g.attributes.position;
-    for(let i=0;i<p.count;i++){ const x=p.getX(i),z=p.getZ(i), a=Math.atan2(z,x); const f=1+.09*Math.sin(a*5+k)+.04*Math.cos(a*9); p.setXYZ(i,x*f,p.getY(i)+.018*Math.sin(a*6)*Math.hypot(x,z)/r,z*f); }
+    const g=new THREE.LatheGeometry(pts,28); const p=g.attributes.position;
+    for(let i=0;i<p.count;i++){ const x=p.getX(i),z=p.getZ(i), a=Math.atan2(z,x); const f=1+.16*Math.sin(a*5+k)+.07*Math.cos(a*9); p.setXYZ(i,x*f,p.getY(i)+.042*Math.sin(a*6)*Math.hypot(x,z)/r,z*f); }
     g.computeVertexNormals(); g.translate(Math.sin(k*2)*.065,y,Math.cos(k*2)*.065); parts.push(g);
   }
   parts.push(new THREE.CylinderGeometry(.055,.09,.33,10).translate(0,.16,0)); return combine(parts);
 }
 export function pearlCoral() {
-  const parts=[]; for(let i=0;i<13;i++){const a=i*2.39996, r=.25*Math.sqrt(i/13), h=.1+.17*Math.sqrt(1-i/14); const s=.065+.025*Math.sin(i*4); parts.push(new THREE.SphereGeometry(s,7,5).scale(1,1.2,1).translate(Math.cos(a)*r,h,Math.sin(a)*r));} return combine(parts);
+  const parts=[]; for(let i=0;i<13;i++){const a=i*2.39996, r=.25*Math.sqrt(i/13), h=.1+.17*Math.sqrt(1-i/14); const s=.065+.025*Math.sin(i*4); parts.push(new THREE.SphereGeometry(s,10,7).scale(1,1.2,1).translate(Math.cos(a)*r,h,Math.sin(a)*r));} return combine(parts);
 }
 export function softBranch() {
   const parts=[];

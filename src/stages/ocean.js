@@ -26,7 +26,7 @@ const P = {
   end: new THREE.Vector3(0, 0.7, -27),
 };
 const CORAL = [0xe49bc8, 0xf6bd91, 0xf6dc9b, 0xb49ae7, 0x52c9ba, 0xdf82ae, 0xc8b0ee, 0x70b8e1];
-const BLEACHED = 0xe9e4d8;
+const BLEACHED = 0xb6c7be;
 const HINT_AT = 12, AUTO_AT = 45;
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
@@ -92,15 +92,15 @@ export class Ocean {
   buildUnderwater() {
     const U = this.U;
     this.dome = gradientDome(140); U.add(this.dome);
-    U.add(new THREE.HemisphereLight(0xc9f7ff, 0x216b83, 1.9));
-    const top = new THREE.DirectionalLight(0xfff5e4, 2.1); top.position.set(2, 10, 4); U.add(top);
+    U.add(new THREE.HemisphereLight(0xc1edff, 0x17465f, 1.35));
+    const top = new THREE.DirectionalLight(0xe9fff6, 2.35); top.position.set(2, 10, 4); U.add(top);
 
     // sandy floor with soft dunes, ripples and caustics
     const fg = new THREE.PlaneGeometry(110, 110, 56, 56).rotateX(-Math.PI / 2);
     const fp = fg.attributes.position;
     for (let i = 0; i < fp.count; i++) { const x = fp.getX(i), z = fp.getZ(i); fp.setY(i, Math.sin(x * 0.45) * 0.15 + Math.sin(z * 0.35 + x * 0.2) * 0.2); }
     fg.computeVertexNormals();
-    const rip = rippleTexture('#d8d0b7', '#e0d9c3'); rip.repeat.set(30, 30);
+    const rip = rippleTexture('#b5b9a3', '#d7ddc1'); rip.repeat.set(22, 22);
     const floor = new THREE.Mesh(fg, toon(0xffffff, { map: rip, caustics: true, smooth: true, rimK: 0.08 }));
     floor.position.set(0, FLOOR, -14);
     U.add(floor);
@@ -113,10 +113,10 @@ export class Ocean {
       [-8.5, -4, 3.5, 2.2, 3], [8.8, -8, 3.8, 2.5, 3], [-9.5, -14.5, 4, 2.6, 3], [9.5, -20, 4, 2.4, 3], [-8, -29, 4.5, 2.6, 3],
       [6, -34, 5, 3.0, 3], [-1.5, -39, 6, 3.2, 3], [-12, 4, 4, 2.4, 2], [11.5, 3, 4, 2.2, 2], [16, -14, 5, 3.5, 3], [-16, -20, 5, 3.4, 3],
     ];
-    const sides = [[0x4ba998, 0x23616d], [0x509a9f, 0x25576b], [0x67b7a4, 0x245e67], [0x749eaa, 0x385b71]];
+    const sides = [[0x287f77, 0x164c58], [0x397d86, 0x1b4b65], [0x438f78, 0x21545c], [0x527d8e, 0x294b69]];
     const tops = [];
     isl.forEach(([x, z, r, h, levels], i) => {
-      const { geo, tops: t } = islandGeometry({ r, h, levels, side: sides[i % sides.length], top: i % 5 === 3 ? 0x71b4a3 : 0xa4c7b0 });
+      const { geo, tops: t } = islandGeometry({ r, h, levels, side: sides[i % sides.length], top: i % 5 === 3 ? 0x5c9587 : 0x77a59a });
       const m = new THREE.Mesh(geo, this.islandMat || (this.islandMat = toon(0xffffff, { vertexColors: true, smooth: true, caustics: true, rimK: 0.08 })));
       m.position.set(x, FLOOR - 0.05, z);
       U.add(m);
@@ -127,21 +127,21 @@ export class Ocean {
     const onTop = (n) => { const out = []; for (const t of tops) { const k = Math.max(2, Math.min(22,Math.round(t.r * t.r * n))); for (let i = 0; i < k; i++) { const a = rand(0, 6.28), rr = Math.sqrt(Math.random()) * t.r; out.push({ x: t.x + Math.cos(a) * rr, y: t.y, z: t.z + Math.sin(a) * rr, ry: rand(0, 6.28), d: -(t.z + Math.sin(a) * rr) + 2 }); } } return out; };
     const onFloor = (n) => { const out = []; let g = 0; while (out.length < n && g++ < n * 30) { const x = rand(-12, 12), z = rand(-34, 6); const px = this.pathX(z); if (Math.abs(x - px) < 1.1) continue; out.push({ x, y: FLOOR + 0.02, z, ry: rand(0, 6.28), d: -z + 2 }); } return out; };
     const col = () => pick(CORAL);
-    const branch = [...onTop(0.48), ...onFloor(55)].map((p) => ({ ...p, s: rand(1.0, 2.0), c: col() }));
-    const brain = [...onTop(0.55), ...onFloor(55)].map((p) => ({ ...p, y: p.y + 0.04, s: rand(0.8, 1.6), c: col() }));
+    const branch = [...onTop(0.70), ...onFloor(80)].map((p) => ({ ...p, s: rand(1.0, 2.0), c: col() }));
+    const brain = [...onTop(0.75), ...onFloor(75)].map((p) => ({ ...p, y: p.y + 0.04, s: rand(0.8, 1.6), c: col() }));
     const tubes = [...onTop(0.30), ...onFloor(30)].map((p) => ({ ...p, s: rand(0.9, 1.6), c: col() }));
     const anem = [...onTop(0.45), ...onFloor(45)].map((p) => ({ ...p, s: rand(1.0, 1.9), c: pick([0xff5fa2, 0xa77bff, 0x3fe0c5, 0xffd84a]) }));
     const stars = onFloor(40).map((p) => ({ ...p, y: FLOOR + 0.05, s: rand(1, 1.7), c: pick([0xff7a59, 0xffd84a, 0xff5fa2]) }));
     const fans = [...onTop(0.35), ...onFloor(30)].map((p) => ({ ...p, s: rand(1.2, 2.2), c: pick([0xff4d5e, 0xa77bff, 0xffd84a]) }));
-    const plates = [...onTop(0.38), ...onFloor(35)].map(p=>({...p,s:rand(1.4,2.7),c:pick([0xc4dfc9,0xc9a8e6,0x7fc6b8,0xf4d8b5])}));
+    const plates = [...onTop(0.24), ...onFloor(25)].map(p=>({...p,s:rand(0.9,1.9),c:pick([0xc4dfc9,0xc9a8e6,0x7fc6b8,0xf4d8b5])}));
     this.healers = [
-      instanced([{geo:plateCoral(),mat:toon(0xffffff,{smooth:true,rimK:0.09}),tintable:true}],plates,U,{sick:BLEACHED}),
-      instanced([{ geo: softBranch(), mat: toon(0xffffff, { smooth: true, rimK: 0.10 }), tintable: true }], branch, U, { sick: BLEACHED }),
-      instanced([{ geo: pearlCoral(), mat: toon(0xffffff, { smooth: true, rimK: 0.10 }), tintable: true }], brain, U, { sick: BLEACHED }),
-      instanced([{ geo: vaseCoral(), mat: toon(0xffffff, { smooth: true, side: THREE.DoubleSide, rimK: 0.10 }), tintable: true }], tubes, U, { sick: BLEACHED }),
-      instanced([{ geo: anemoneGeometry(), mat: toon(0xffffff), tintable: true }], anem, U, { sick: BLEACHED }),
-      instanced([{ geo: starfishGeometry(), mat: toon(0xffffff), tintable: true }], stars, U, { sick: BLEACHED }),
-      instanced([{ geo: new THREE.PlaneGeometry(0.5, 0.5).translate(0, 0.25, 0), mat: toon(0xffffff, { map: seaFanTexture(), alphaTest: 0.4, side: THREE.DoubleSide }), tintable: true }], fans, U, { sick: BLEACHED }),
+      instanced([{geo:plateCoral(),mat:toon(0xffffff,{smooth:true,rimK:0.09}),tintable:true}],plates,U,{sick:BLEACHED,residualColor:0.38}),
+      instanced([{ geo: softBranch(), mat: toon(0xffffff, { smooth: true, rimK: 0.10 }), tintable: true }], branch, U, { sick: BLEACHED, residualColor: 0.38 }),
+      instanced([{ geo: pearlCoral(), mat: toon(0xffffff, { smooth: true, rimK: 0.10 }), tintable: true }], brain, U, { sick: BLEACHED, residualColor: 0.38 }),
+      instanced([{ geo: vaseCoral(), mat: toon(0xffffff, { smooth: true, side: THREE.DoubleSide, rimK: 0.10 }), tintable: true }], tubes, U, { sick: BLEACHED, residualColor: 0.38 }),
+      instanced([{ geo: anemoneGeometry(), mat: toon(0xffffff), tintable: true }], anem, U, { sick: BLEACHED, residualColor: 0.38 }),
+      instanced([{ geo: starfishGeometry(), mat: toon(0xffffff), tintable: true }], stars, U, { sick: BLEACHED, residualColor: 0.38 }),
+      instanced([{ geo: new THREE.PlaneGeometry(0.5, 0.5).translate(0, 0.25, 0), mat: toon(0xffffff, { map: seaFanTexture(), alphaTest: 0.4, side: THREE.DoubleSide }), tintable: true }], fans, U, { sick: BLEACHED, residualColor: 0.38 }),
     ];
     // swaying sea grass + kelp
     const kelp = onFloor(140).map((p) => ({ ...p, s: [1, rand(0.5, 1.3), 1] }));
