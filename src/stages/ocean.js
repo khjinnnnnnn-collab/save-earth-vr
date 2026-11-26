@@ -3,7 +3,9 @@ import { loadHDR } from '../assets.js';
 import { loadArt, artMesh, artMaterial, swapMesh, soften, dressAnimal, dressFish } from '../art/library.js?v=032';
 import { buildReefArt } from '../art/reef_scene.js?v=032';
 import { instanced } from '../props.js';
-import { textPanel } from '../ui.js?v=033';
+import { textPanel } from '../ui.js?v=034';
+import { LINES } from '../lines.js?v=034';
+import { turtleFeedingPose, resultCertificate } from '../art/mission_presentation.js?v=034';
 import { plateCoral, pearlCoral, softBranch, vaseCoral } from './reef_art.js';
 import { toon, toonify, toonShared, gradientDome, glowTexture } from '../toon.js';
 import { oceanCan, oceanBottle, floatingBag, neckPlastic, fishingNet } from '../art/rescue_props.js?v=032';
@@ -38,7 +40,7 @@ export class Ocean {
     this.ctx = ctx; this.root = new THREE.Group(); this.offs = [];
     this.uTime = toonShared.uTime;
     this.glows = new Map();
-    this.score = 0; this.total = 10;
+    this.score = 0; this.total = 10; this.results={trash:0,rescue:0,ice:0};
   }
 
   async load() {
@@ -209,8 +211,8 @@ export class Ocean {
     this.mantas = [0, 1].map((i) => { const m = makeManta(); if(this.art)soften(m); m.scale.setScalar(1.3); m.userData.a = i * 3; U.add(m); return m; });
 
     // rescue friends
-    this.turtle = this.art?dressAnimal(this.art,makeTurtle(),'turtle'):toonify(makeTurtle()); this.turtle.position.copy(P.turtle).add(new THREE.Vector3(-.34, 1.02, -1.55)); this.turtle.rotation.set(.08,.35,-.10); U.add(this.turtle);
-    this.plastic = floatingBag(); this.plastic.scale.setScalar(1.15); this.plastic.position.copy(this.turtle.position).add(new THREE.Vector3(.21,.035,.67)); this.plastic.rotation.set(-.12,.30,-.20); U.add(this.plastic);
+    this.turtle = this.art?dressAnimal(this.art,makeTurtle(),'turtle'):toonify(makeTurtle()); this.turtle.position.copy(P.turtle).add(new THREE.Vector3(-.34, 1.02, -1.55)); this.turtle.rotation.set(.04,.57,-.07); U.add(this.turtle);
+    this.plastic = floatingBag(); U.add(this.plastic); this.turtleFeeding=true; this.feedPose=turtleFeedingPose(this.turtle,this.plastic,U);this.feedPose(0,true);
     this.trapped = fishSchool(U, P.fish.clone().add(new THREE.Vector3(.40, 1.03, -1.65)), { n: 9, radius: 0.23, color: 0xff7a3c, height: 0.13, speed: 0.26 });
     if(this.art)dressFish(this.art,this.trapped,'fish_amber');else this.trapped.im.material=toon(0xffffff,{vertexColors:true});
     this.net = fishingNet(); this.net.position.copy(this.trapped.center); U.add(this.net);
@@ -337,7 +339,7 @@ export class Ocean {
     const rim=new THREE.Mesh(new THREE.TorusGeometry(.23,.025,8,32).rotateX(Math.PI/2),toon(0xe8fdff,{smooth:true}));
     const dark=new THREE.Mesh(new THREE.CircleGeometry(.205,24),new THREE.MeshBasicMaterial({color:0x103e4c,side:THREE.DoubleSide}));dark.rotation.x=-Math.PI/2;dark.position.y=-.12;
     const panel=textPanel({width:.45,height:.13,text:label,size:100,bg:'rgba(7,45,63,.93)',border:'rgba(255,255,255,.65)'});panel.position.set(0,-.11,.245);g.add(body,rim,dark,panel);g.position.set(i?.64:-.64,.80,-1.04);this.U.add(g);this.bins.push(g);}}
-  collect(it,bin){const {ctx}=this,obj=it.obj;this.root.attach(obj);const from=obj.position.clone(),to=bin.getWorldPosition(new THREE.Vector3()),scale=obj.scale.clone();ctx.audio.sfx('good');ctx.fx.burst(to,0x85f4d4,{n:18,speed:.7});ctx.tween(.35,k=>{obj.position.lerpVectors(from,to,k);obj.position.y-=k*.15;obj.scale.copy(scale).multiplyScalar(1-.85*k);}).then(()=>{obj.visible=false;});this.progress(1);this.heal(2+this.score*1.2);}
+  collect(it,bin){const {ctx}=this,obj=it.obj;this.root.attach(obj);const from=obj.position.clone(),to=bin.getWorldPosition(new THREE.Vector3()),scale=obj.scale.clone();ctx.audio.sfx('good');ctx.fx.burst(to,0x85f4d4,{n:18,speed:.7});ctx.tween(.35,k=>{obj.position.lerpVectors(from,to,k);obj.position.y-=k*.15;obj.scale.copy(scale).multiplyScalar(1-.85*k);}).then(()=>{obj.visible=false;});this.results.trash++;this.progress(1);this.heal(2+this.score*1.2);}
 
   setGlow(it, on) {
     let s = this.glows.get(it);
@@ -468,10 +470,14 @@ export class Ocean {
     this.heal(6); ctx.audio.sfx('sparkle');
     for (let i = 0; i < 6; i++) setTimeout(() => ctx.fx.burst(new THREE.Vector3(rand(-3, 3), rand(-0.5, 1), rand(-4, 1)), pick(CORAL), { n: 26, speed: 1.4 }), i * 180);
     await audio.say('o_reef_done');
+    // Learning pages advance automatically and are independent of the optional control hints.
+    ctx.ui.showLesson('산호와 기후변화 · 백화현상',LINES.o_reef_learn1,1,2);await ctx.wait(9);
+    ctx.ui.showLesson('산호와 기후변화 · 생태계',LINES.o_reef_learn2,2,2);await ctx.wait(10);
+    ctx.ui.hideLesson();
 
     // ---- 2. rescue three friends
     this.phase = 'rescue';
-    await this.rescue('turtle', P.turtle, this.plastic, '🛍️ 비닐봉지', 'o_turtle', 'o_turtle_done', 12, () => this.spin(this.turtle));
+    await this.rescue('turtle', P.turtle, this.plastic, '🛍️ 비닐봉지', 'o_turtle', 'o_turtle_done', 12, () => {this.turtleFeeding=false;this.feedPose?.(ctx.time,false);this.spin(this.turtle);});
     await this.rescue('fish', P.fish, this.net, '🕸️ 버려진 그물', 'o_fish', 'o_fish_done', 18, () => { this.trapped.speed = 1.6; this.fishFree = true; this.net.userData.mesh.material.transparent=true;ctx.tween(0.5, (k) => {this.net.userData.mesh.scale.setScalar(1 - 0.75 * k);this.net.userData.mesh.material.opacity=1-.7*k;}); });
     await this.rescue('seal', P.seal, this.ring, '⭕ 플라스틱 고리', 'o_seal', 'o_seal_done', 26, () => this.spin(this.seal));
 
@@ -517,14 +523,15 @@ export class Ocean {
     ctx.audio.sfx('clear');
     for (let i = 0; i < 8; i++) setTimeout(() => ctx.fx.burst(P.end.clone().add(new THREE.Vector3(rand(-1.5, 1.5), rand(1.2, 2.4), rand(-2.5, -1.2))), pick([0xff8ab0, 0x7fc8ff, 0xffe066, 0x7cf3a0]), { n: 30, speed: 1.6 }), i * 260);
     await audio.say('o_end');
-    const cert = textPanel({ width: 1.3, height: 0.78, size: 62, bg: 'rgba(16,60,120,0.92)', border: 'rgba(255,220,120,0.95)' });
-    cert.setText('🏅 바다 지킴이 인증 🏅\n\n🥤 일회용품 줄이기\n🗑️ 쓰레기는 쓰레기통에\n💡 전기 아끼기', { size: 60 });
-    cert.position.copy(P.end).add(new THREE.Vector3(0, 1.75, -1.9));
-    cert.scale.setScalar(0.001);
-    this.U.add(cert); this.cert = cert;
-    await ctx.tween(0.6, (k) => cert.scale.setScalar(Math.max(0.001, k)), (x) => 1 + 2.7 * Math.pow(x - 1, 3) + 1.7 * Math.pow(x - 1, 2));
     await audio.say('o_end2');
-    await ctx.wait(10);
+    ctx.ui.subtitle('');
+    const cert = resultCertificate(this.results,this.score,this.total);
+    cert.position.copy(P.end).add(new THREE.Vector3(0, 1.40, -2.05));
+    cert.scale.setScalar(.001);
+    this.U.add(cert); this.cert = cert; this.certBaseY=cert.position.y;
+    ctx.audio.sfx('clear');
+    await ctx.tween(.65,k=>cert.scale.setScalar(Math.max(.001,k)),x=>1+2.1*Math.pow(x-1,3)+1.1*Math.pow(x-1,2));
+    await ctx.wait(14);
   }
 
   async rescue(key, station, obj, label, line, doneLine, healR, celebrate) {
@@ -580,6 +587,7 @@ export class Ocean {
     ctx.ui.hideHint();
     celebrate();
     this.toBag(obj);
+    this.results.rescue++;
     this.progress(1);
     this.heal(healR);
     const p = (key === 'fish' ? this.net : key === 'turtle' ? this.turtle : this.seal).getWorldPosition(new THREE.Vector3());
@@ -593,7 +601,7 @@ export class Ocean {
     this.ctx.tween(1.0, (k) => (obj.rotation.z = r0 + Math.sin(k*Math.PI*2)*.24));
   }
 
-  placeBridge(chunk,to,n){const {ctx}=this;chunk.userData.flying=true;this.root.attach(chunk);const from=chunk.position.clone();const q=chunk.quaternion.clone();ctx.audio.sfx('whoosh');this.progress(1);ctx.tween(.6,k=>{chunk.position.lerpVectors(from,to,k);chunk.quaternion.copy(q).slerp(new THREE.Quaternion(),k);}).then(()=>{chunk.visible=false;const slab=new THREE.Mesh(floeGeometry(.45),toon(0xffffff,{vertexColors:true,smooth:true,rimK:.15}));if(this.art)swapMesh(this.art,slab,'ice_floe',{roughness:.42});slab.position.copy(to);slab.position.y=-.2;this.A.add(slab);ctx.fx.burst(to,0xdff8ff,{n:20,speed:.8});ctx.audio.sfx('good');});}
+  placeBridge(chunk,to,n){const {ctx}=this;chunk.userData.flying=true;this.results.ice++;this.root.attach(chunk);const from=chunk.position.clone();const q=chunk.quaternion.clone();ctx.audio.sfx('whoosh');this.progress(1);ctx.tween(.6,k=>{chunk.position.lerpVectors(from,to,k);chunk.quaternion.copy(q).slerp(new THREE.Quaternion(),k);}).then(()=>{chunk.visible=false;const slab=new THREE.Mesh(floeGeometry(.45),toon(0xffffff,{vertexColors:true,smooth:true,rimK:.15}));if(this.art)swapMesh(this.art,slab,'ice_floe',{roughness:.42});slab.position.copy(to);slab.position.y=-.2;this.A.add(slab);ctx.fx.burst(to,0xdff8ff,{n:20,speed:.8});ctx.audio.sfx('good');});}
 
   async momReturns() {
     const { ctx } = this;
@@ -629,6 +637,7 @@ export class Ocean {
       if (this.fishFree && this.phase!=='end') {this.trapped.center.y += dt * 0.10;this.trapped.center.x += dt*.11;}
       this.jellies.forEach((j) => j.userData.update(t, j.userData.ph));
       this.turtle.userData.update(t, this.phase === 'end' ? 1 : 0);
+      this.feedPose?.(t,this.turtleFeeding);
       this.seal.userData.update(t, this.phase === 'end' ? 1 : 0);
       this.whale.userData.update(t);
       if (this.phase === 'end') {
@@ -647,7 +656,7 @@ export class Ocean {
       a.needsUpdate = true;
       for (const it of this.floating || []) if (!it.done && !it.heldBy && !it.fly) { const h = it.obj.userData.home; it.obj.position.y = h.y + Math.sin(t * 1.3 + h.x * 3) * 0.04; it.obj.rotation.y += dt * 0.3; }
       if (this.friendsHappy) { this.turtle.position.y += Math.sin(t * 3) * 0.002; this.seal.rotation.z = Math.sin(t * 4) * 0.15; }
-      if (this.cert) this.cert.position.y += Math.sin(t * 1.5) * 0.0006;
+      if (this.cert) this.cert.position.y = this.certBaseY + Math.sin(t * 1.5) * .008;
     }
     if (this.A.visible) {
       const s = this.snow.geometry.attributes.position;
@@ -675,7 +684,7 @@ export class Ocean {
     for(const r of [this.root,this.bag,this.gauge])r.traverse(record);
     this.bag.removeFromParent(); this.gauge.removeFromParent();
     geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());
-    this.ctx.ui.hideHint();this.ctx.ui.setSubtitlePlacement();this.ctx.input.setLaser(false);
+    this.ctx.ui.hideHint();this.ctx.ui.hideLesson();this.ctx.ui.setSubtitlePlacement();this.ctx.input.setLaser(false);
     this.ctx.rig.position.set(0, 0, 0);
     this.ctx.grab.clear(); this.ctx.grab.hover.clear();
     const s = this.ctx.scene; s.fog = null; s.environment = null; s.background = null;

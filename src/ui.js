@@ -64,12 +64,23 @@ export function createUI(ctx) {
   ctx.camera.add(sub);
   const tip=textPanel({width:.77,height:.19,res:1024,size:45,bg:'rgba(8,43,63,.88)',border:'rgba(119,231,237,.85)'});
   tip.position.set(0,.36,-1.22);tip.material.depthTest=false;tip.renderOrder=9001;tip.visible=false;ctx.camera.add(tip);
+  const lesson=textPanel({width:1.04,height:.36,res:1536,size:64,bg:null});lesson.position.set(0,.03,-1.42);lesson.material.depthTest=false;lesson.renderOrder=9002;lesson.visible=false;ctx.camera.add(lesson);
   let until=0,current=null,wasXR=false;
   const drawTip=()=>{wasXR=ctx.renderer.xr.isPresenting;tip.setText('조작 안내 · '+current[0]+'\n'+current[wasXR?1:2]);};
   ctx.onUpdate(()=>{if(tip.visible&&ctx.time>=until)tip.visible=false;if(tip.visible&&wasXR!==ctx.renderer.xr.isPresenting)drawTip();});
   return {
     hint(title,vr,pc,seconds=7){current=[title,vr,pc];until=ctx.time+seconds;drawTip();tip.visible=document.getElementById('tips-enabled')?.checked!==false;},
     hideHint(){tip.visible=false;},
+    showLesson(title,body,page,total){tip.visible=false;sub.visible=false;lesson.visible=true;lesson.draw((g,w,h)=>{
+      const bg=g.createLinearGradient(0,0,w,h);bg.addColorStop(0,'rgba(9,43,59,.98)');bg.addColorStop(1,'rgba(15,77,85,.97)');
+      roundRect(g,7,7,w-14,h-14,42);g.fillStyle=bg;g.fill();g.strokeStyle='#9de5db';g.lineWidth=5;g.stroke();
+      g.textAlign='left';g.textBaseline='middle';g.fillStyle='#a4ece0';g.font='700 47px '+FONT;g.fillText(title,64,70);
+      g.textAlign='right';g.fillStyle='#f6d58c';g.font='700 43px '+FONT;g.fillText(page+' / '+total,w-64,70);
+      g.strokeStyle='rgba(164,236,224,.35)';g.lineWidth=2;g.beginPath();g.moveTo(64,116);g.lineTo(w-64,116);g.stroke();
+      g.textAlign='center';g.font='700 65px '+FONT;g.fillStyle='#f3fcff';const lines=wrap(g,body,w-140);const lh=88;lines.forEach((l,i)=>g.fillText(l,w/2,h*.54+(i-(lines.length-1)/2)*lh));
+      for(let i=0;i<total;i++){g.beginPath();g.arc(w/2+(i-(total-1)/2)*44,h-44,10,0,Math.PI*2);g.fillStyle=i+1===page?'#f4d38c':'#51838c';g.fill();}
+    });},
+    hideLesson(){lesson.visible=false;},
     setSubtitlePlacement(where='bottom'){sub.position.y=where==='top'?.14:-.30;},
     subtitle(text) { if (!text) { sub.visible = false; return; } sub.setText(text); sub.visible = true; },
     gauge({ width = 0.9, label = '', color = '#3ccf7a' } = {}) {
