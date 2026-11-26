@@ -46,34 +46,52 @@ const preload = Promise.all([loadHDR('kloofendal_48d_partly_cloudy_puresky'),loa
   return false;
 });
 
+let returningToStart = false;
+function returnToStart() {
+  if (returningToStart) return;
+  returningToStart = true;
+  // Reload to the original mode-selection screen, even after a developer autostart.
+  const url = new URL(location.href);
+  if (url.searchParams.has('autostart')) {
+    url.searchParams.delete('autostart');
+    location.replace(url.href);
+  } else location.reload();
+}
+
 async function play() {
   const start = params.get('stage');
-  let order = start && ORDER.includes(start) ? ORDER.slice(ORDER.indexOf(start)) : ORDER;
-  for (;;) {
-    ctx.state.orbs = [];
-    let next = STAGES[order[0]]();
-    let nextLoad = next.load();
-    for (let i = 0; i < order.length; i++) {
-      const stage = next;
-      await nextLoad;
-      if (i + 1 < order.length) { next = STAGES[order[i + 1]](); nextLoad = next.load(); }
-      ctx.scene.add(stage.root);
-      ctx.stage = stage;
-      await stage.run();
-      await ctx.fade(1, 0.7);
-      ctx.audio.stop();
-      stage.dispose();
-      ctx.scene.remove(stage.root);
-    }
-    order = ORDER;
+  const order = start && ORDER.includes(start) ? ORDER.slice(ORDER.indexOf(start)) : ORDER;
+  ctx.state.orbs = [];
+  let next = STAGES[order[0]]();
+  let nextLoad = next.load();
+  for (let i = 0; i < order.length; i++) {
+    const stage = next;
+    await nextLoad;
+    if (i + 1 < order.length) { next = STAGES[order[i + 1]](); nextLoad = next.load(); }
+    ctx.scene.add(stage.root);
+    ctx.stage = stage;
+    await stage.run();
+    await ctx.fade(1, 0.7);
+    ctx.audio.stop();
+    stage.dispose();
+    ctx.scene.remove(stage.root);
   }
+
+  // The certificate has finished. Leave immersive VR before returning to the menu.
+  // Never start another round until the next player explicitly chooses a mode.
+  const session = engine.renderer.xr.getSession();
+  if (session) {
+    try { await session.end(); }
+    catch (err) { console.warn('VR session end failed', err); }
+  }
+  returnToStart();
 }
 
 /** Full immersive VR. Must be called straight from a button press (the browser requires it). */
 async function enterVR() {
   const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking'] });
   await engine.renderer.xr.setSession(session);
-  session.addEventListener('end', () => location.reload());
+  session.addEventListener('end', returnToStart, { once: true });
   $('btn-vr-float').hidden = true;
 }
 
